@@ -1,0 +1,159 @@
+NAME
+    Setup::File - Ensure file (non-)existence, mode/permission, and content
+
+VERSION
+    version 0.01
+
+SYNOPSIS
+     use Setup::File 'setup_file';
+
+     # simple usage (doesn't save undo info)
+     my $res = setup_file path => '/etc/rc.local',
+                          should_exist => 1,
+                          gen_content_code => sub { "#!/bin/sh\n" },
+                          owner => 'root', group => 0,
+                          mode => '+x';
+     die unless $res->[0] == 200;
+
+     # perform setup and save undo info (undo info should be serializable)
+     $res = setup_file ..., -undo_action => 'do';
+     die unless $res->[0] == 200;
+     my $undo_info = $res->[3]{undo_info};
+
+     # perform undo
+     $res = setup_file ..., -undo_action => "undo", -undo_info=>$undo_info;
+     die unless $res->[0] == 200;
+
+     # state that file must not exist
+     setup_file path => '/foo/bar', should_exist => 0;
+
+DESCRIPTION
+    This module provides one function: setup_file.
+
+    This module is part of the Setup modules family.
+
+    This module uses Log::Any logging framework.
+
+    This module's functions have Sub::Spec specs.
+
+THE SETUP MODULES FAMILY
+    I use the "Setup::" namespace for the Setup modules family, typically
+    used in installers (or other applications). The modules in Setup family
+    have these characteristics:
+
+    *   used to reach some desired state
+
+        For example, Setup::Symlink::setup_symlink makes sure a symlink
+        exists to the desired target. Setup::File::setup_file makes sure a
+        file exists with the correct content/ownership/permission.
+
+    *   do nothing if desired state has been reached
+
+    *   support dry-run (simulation) mode
+
+    *   support undo to restore state to previous/original one
+
+FUNCTIONS
+    None are exported by default, but they are exportable.
+
+  setup_file(%args) -> [STATUS_CODE, ERR_MSG, RESULT]
+    Ensure file (non-)existence, mode/permission, and content.
+
+    If given, -undo_hint should contain {tmp_dir=>...} to specify temporary
+    directory to save replaced file/dir. Temporary directory defaults to
+    ~/.setup, it will be created if not exists.
+
+    Returns a 3-element arrayref. STATUS_CODE is 200 on success, or an error
+    code between 3xx-5xx (just like in HTTP). ERR_MSG is a string containing
+    error message, RESULT is the actual result.
+
+    This function supports undo operation. See Sub::Spec::Clause::features
+    for details on how to perform do/undo/redo.
+
+    This function supports dry-run (simulation) mode. To run in dry-run
+    mode, add argument "-dry_run" => 1.
+
+    Arguments ("*" denotes required arguments):
+
+    *   path* => *str*
+
+        Path to file.
+
+        File path needs to be absolute so it's normalized.
+
+    *   allow_symlink* => *bool* (default 0)
+
+        Whether symlink is allowed.
+
+        If existing file is a symlink then if allow_symlink is false then it
+        is an unacceptable condition (the symlink will be replaced if
+        replace_symlink is true).
+
+        Note: if you want to setup symlink instead, use Setup::Symlink.
+
+    *   check_content_code => *code*
+
+        Code to check content.
+
+        If unset, file will not be checked for its content. If set, code
+        will be called whenever file content needs to be checked. Code will
+        be passed the file content and should return a boolean value
+        indicating whether content is acceptable.
+
+    *   gen_content_code => *code*
+
+        Code to generate content.
+
+        If set, whenever a new file content is needed (e.g. when file is
+        created or file content reset), this code will be called to provide
+        it. If unset, empty string will be used instead.
+
+        Code will be passed the current content (or undef) and should return
+        the new content.
+
+    *   group => *str*
+
+        Expected group.
+
+    *   mode => *str*
+
+        Expected permission mode.
+
+    *   owner => *str*
+
+        Expected owner.
+
+    *   replace_dir* => *bool* (default 1)
+
+        Replace existing dir if it needs to be replaced.
+
+    *   replace_file* => *bool* (default 1)
+
+        Replace existing file if it needs to be replaced.
+
+    *   replace_symlink* => *bool* (default 1)
+
+        Replace existing symlink if it needs to be replaced.
+
+    *   should_exist => *bool*
+
+        Whether file should exist.
+
+        If undef, file need not exist. If set to 0, file must not exist and
+        will be deleted if it does. If set to 1, file must exist and will be
+        created if it doesn't.
+
+SEE ALSO
+    Sub::Spec, specifically Sub::Spec::Clause::features on dry-run/undo.
+
+    Other modules in Setup:: namespace.
+
+AUTHOR
+    Steven Haryanto <stevenharyanto@gmail.com>
+
+COPYRIGHT AND LICENSE
+    This software is copyright (c) 2011 by Steven Haryanto.
+
+    This is free software; you can redistribute it and/or modify it under
+    the same terms as the Perl 5 programming language system itself.
+
