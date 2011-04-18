@@ -1,6 +1,6 @@
 package Setup::Dir;
 BEGIN {
-  $Setup::Dir::VERSION = '0.01';
+  $Setup::Dir::VERSION = '0.02';
 }
 # ABSTRACT: Ensure dir (non-)existence & mode/permission
 
@@ -97,25 +97,25 @@ Setup::Dir - Ensure dir (non-)existence & mode/permission
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
  use Setup::Dir 'setup_dir';
 
- # simple usage (doesn't save undo info)
+ # simple usage (doesn't save undo data)
  $res = setup_dir path => '/etc/myapp',
                   should_exist => 1,
                   owner => 'root', group => 0, mode => 0755;
  die unless $res->[0] == 200;
 
- # perform setup and save undo info (undo info should be serializable)
+ # perform setup and save undo data (undo data should be serializable)
  $res = setup_dir ..., -undo_action => 'do';
  die unless $res->[0] == 200;
- my $undo_info = $res->[3]{undo_info};
+ my $undo_data = $res->[3]{undo_data};
 
  # perform undo
- $res = setup_dir ..., -undo_action => "undo", -undo_info=>$undo_info;
+ $res = setup_dir ..., -undo_action => "undo", -undo_data=>$undo_data;
  die unless $res->[0] == 200;
 
  # state that dir must not exist

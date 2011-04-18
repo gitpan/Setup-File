@@ -12,6 +12,7 @@ t/00-compile.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t
 t/setup_dir-chown.t
+t/setup_dir.t
 t/setup_file-chown.t
 t/setup_file.t
 t/testlib.pl

@@ -1,6 +1,6 @@
 package Setup::File;
 BEGIN {
-  $Setup::File::VERSION = '0.01';
+  $Setup::File::VERSION = '0.02';
 }
 # ABSTRACT: Ensure file (non-)existence, mode/permission, and content
 
@@ -155,9 +155,21 @@ sub _setup_file_or_dir {
     # check current state
     my $is_symlink     = (-l $path);
     my $exists         = (-e _);
+    my $state_ok       = 1;
+    # -l does lstat, we need stat
+    #my @st = stat($is_symlink ? $path : _);
+    my @st             = stat($path); # stricture complains about _
+    return [500, "Can't stat (1): $!"] if $exists && !$is_symlink && !@st;
     my $is_file        = (-f _);
     my $is_dir         = (-d _);
-    my $state_ok       = 1;
+
+    # exists means whether target exists, if symlink is allowed
+    my $symlink_exists;
+    if ($allow_symlink && $is_symlink) {
+        $symlink_exists = $exists;
+        $exists = (-e _) if $symlink_exists;
+    }
+
     {
         if (defined($should_exist) && !$should_exist) {
             $log->trace("nok: $which should not exist but does") if $exists;
@@ -184,10 +196,6 @@ sub _setup_file_or_dir {
                 $state_ok = 0;
                 last;
             }
-            # -l does lstat, we need stat
-            #my @st = stat($is_symlink ? $path : _);
-            my @st = stat($path); # stricture complains about _
-            return [500, "Can't stat: $!"] unless @st;
             if (defined $mode) {
                 my $cur_mode = $st[2] & 07777;
                 $mode = getchmod($mode, $cur_mode)
@@ -259,8 +267,8 @@ sub _setup_file_or_dir {
         return [412, "Can't undo: dir is not empty"]
             if $which eq 'dir' && !_dir_is_empty($path);
         return [304, "dry run"] if $dry_run;
-        my $undo_info = $args{-undo_info};
-        my $res = _undo(\%args, $undo_info);
+        my $undo_data = $args{-undo_data};
+        my $res = _undo(\%args, $undo_data);
         if ($res->[0] == 200) {
             return [200, "OK", undef, {}];
         } else {
@@ -290,7 +298,7 @@ sub _setup_file_or_dir {
     if (($exists || $is_symlink) && defined($should_exist) && !$should_exist ||
             $is_symlink && !$allow_symlink ||
                 $which eq 'file' && $is_dir ||
-                    $which eq 'dir' && !$is_dir) {
+                    $which eq 'dir' && $exists && !$is_dir) {
         my $uuid = UUID::Random::generate;
         my $save_path = "$tmp_dir/$uuid";
         if ($save_undo) {
@@ -305,8 +313,20 @@ sub _setup_file_or_dir {
         }
         $exists = 0;
     }
+
     if ($should_exist && !$exists) {
+        if ($is_symlink && $symlink_exists) {
+            $log->tracef("fix: removing symlink first ...");
+            my $sym_target = readlink($path);
+            unless (unlink $path) {
+                _undo(\%args, \@undo, 1);
+                return [500, "Can't remove symlink: $!"];
+            }
+            push @undo, ['mksym', $sym_target];
+        }
+
         if ($which eq 'file') {
+            $log->tracef("fix: creating file ...");
             my $res = write_file($path,
                                  {atomic=>1, err_mode=>'quiet'},
                                  $args{gen_content_code} ?
@@ -316,18 +336,29 @@ sub _setup_file_or_dir {
                 _undo(\%args, \@undo, 1);
                 return [500, "Can't create file: $err"];
             }
+            if (defined($mode) && $mode =~ /[+=-]/) { # symbolic mode
+                # XXX: should use umask?
+                $mode = getchmod($mode, 0644);
+            }
             push @undo, ['mkfile'];
         } else {
-            unless (mkdir $path, $mode//0755) {
+            $log->tracef("fix: creating dir ...");
+            unless (mkdir $path, 0755) {
                 _undo(\%args, \@undo, 1);
                 return [500, "Can't mkdir: $!"];
             }
+            if (defined($mode) && $mode =~ /[+=-]/) { # symbolic mode
+                # XXX: should use umask?
+                $mode = getchmod($mode, 0755);
+            }
             push @undo, ['mkdir'];
         }
+        $exists = 1;
     }
+
     if ($exists) {
 
-        my @st = stat($path);
+        my @st = stat($path) or return [500, "Can't stat (2): $!"];
         my $cur_mode = $st[2] & 07777;
         my $cur_owner = $st[4];
         my $cur_group = $st[5];
@@ -353,7 +384,7 @@ sub _setup_file_or_dir {
             }
         }
 
-        if ($mode != $cur_mode) {
+        if (defined($mode) && $mode != $cur_mode) {
             $log->tracef("fix: setting mode to %04o ...", $mode);
             unless (chmod $mode, $path) {
                 _undo(\%args, \@undo, 1);
@@ -375,14 +406,14 @@ sub _setup_file_or_dir {
 
     }
     my $meta = {};
-    $meta->{undo_info} = \@undo if $save_undo;
+    $meta->{undo_data} = \@undo if $save_undo;
     return [200, "OK", undef, $meta];
 }
 
 sub _undo {
     my ($args, $undo_list, $is_rollback) = @_;
     return [200, "Nothing to do"] unless defined($undo_list);
-    die "BUG: Invalid undo info, must be arrayref"
+    die "BUG: Invalid undo data, must be arrayref"
         unless ref($undo_list) eq 'ARRAY';
 
     my $path = $args->{path};
@@ -401,6 +432,8 @@ sub _undo {
             unlink $path or $err = $!;
         } elsif ($cmd eq 'mkdir') {
             rmdir $path or $err = $!;
+        } elsif ($cmd eq 'mksym') {
+            symlink $arg[0], $path or $err = $!;
         } elsif ($cmd eq 'content') {
             # XXX doesn't do atomic write here, for simplicity (doesn't have to
             # set owner and mode again). but we probably should.
@@ -439,13 +472,13 @@ Setup::File - Ensure file (non-)existence, mode/permission, and content
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
  use Setup::File 'setup_file';
 
- # simple usage (doesn't save undo info)
+ # simple usage (doesn't save undo data)
  my $res = setup_file path => '/etc/rc.local',
                       should_exist => 1,
                       gen_content_code => sub { "#!/bin/sh\n" },
@@ -453,13 +486,13 @@ version 0.01
                       mode => '+x';
  die unless $res->[0] == 200;
 
- # perform setup and save undo info (undo info should be serializable)
+ # perform setup and save undo data (undo data should be serializable)
  $res = setup_file ..., -undo_action => 'do';
  die unless $res->[0] == 200;
- my $undo_info = $res->[3]{undo_info};
+ my $undo_data = $res->[3]{undo_data};
 
  # perform undo
- $res = setup_file ..., -undo_action => "undo", -undo_info=>$undo_info;
+ $res = setup_file ..., -undo_action => "undo", -undo_data=>$undo_data;
  die unless $res->[0] == 200;
 
  # state that file must not exist
