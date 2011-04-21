@@ -6,8 +6,8 @@ MANIFEST.SKIP
 META.yml
 README
 dist.ini
-lib/Setup/Dir.pm
 lib/Setup/File.pm
+lib/Setup/File/Dir.pm
 t/00-compile.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t

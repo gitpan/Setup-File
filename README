@@ -2,7 +2,7 @@ NAME
     Setup::File - Ensure file (non-)existence, mode/permission, and content
 
 VERSION
-    version 0.02
+    version 0.03
 
 SYNOPSIS
      use Setup::File 'setup_file';

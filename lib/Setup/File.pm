@@ -1,6 +1,6 @@
 package Setup::File;
 BEGIN {
-  $Setup::File::VERSION = '0.02';
+  $Setup::File::VERSION = '0.03';
 }
 # ABSTRACT: Ensure file (non-)existence, mode/permission, and content
 
@@ -135,9 +135,9 @@ sub _setup_file_or_dir {
 
     # check args
     my $path           = $args{path};
+    $log->tracef("=> setup_file(path=%s)", $path);
     $path              =~ m!^/!
         or return [400, "Please specify an absolute path"];
-    $log->tracef("=> setup_file(path=%s)", $path);
     my $should_exist   = $args{should_exist};
     my $allow_symlink  = $args{allow_symlink} // 1;
     my $replace_file   = $args{replace_file} // 1;
@@ -305,7 +305,7 @@ sub _setup_file_or_dir {
             $log->tracef("fix: saving original to $save_path ...");
             rmove $path, $save_path
                 or return [500, "Can't move $path -> $save_path: $!"];
-            push @undo, ['move', $save_path];
+            push @undo, ['move_to_path', $save_path];
         } else {
             $log->tracef("fix: removing original ...");
             remove_tree $path
@@ -322,7 +322,7 @@ sub _setup_file_or_dir {
                 _undo(\%args, \@undo, 1);
                 return [500, "Can't remove symlink: $!"];
             }
-            push @undo, ['mksym', $sym_target];
+            push @undo, ['rmsym', $sym_target];
         }
 
         if ($which eq 'file') {
@@ -340,7 +340,7 @@ sub _setup_file_or_dir {
                 # XXX: should use umask?
                 $mode = getchmod($mode, 0644);
             }
-            push @undo, ['mkfile'];
+            push @undo, ['rmfile'];
         } else {
             $log->tracef("fix: creating dir ...");
             unless (mkdir $path, 0755) {
@@ -351,7 +351,7 @@ sub _setup_file_or_dir {
                 # XXX: should use umask?
                 $mode = getchmod($mode, 0755);
             }
-            push @undo, ['mkdir'];
+            push @undo, ['rmdir'];
         }
         $exists = 1;
     }
@@ -380,7 +380,7 @@ sub _setup_file_or_dir {
                     _undo(\%args, \@undo, 1);
                     return [500, "Can't set file content: $!"];
                 }
-                push @undo, ['content', \$content];
+                push @undo, ['set_content', \$content];
             }
         }
 
@@ -411,30 +411,30 @@ sub _setup_file_or_dir {
 }
 
 sub _undo {
-    my ($args, $undo_list, $is_rollback) = @_;
-    return [200, "Nothing to do"] unless defined($undo_list);
+    my ($args, $undo_data, $is_rollback) = @_;
+    return [200, "Nothing to do"] unless defined($undo_data);
     die "BUG: Invalid undo data, must be arrayref"
-        unless ref($undo_list) eq 'ARRAY';
+        unless ref($undo_data) eq 'ARRAY';
 
     my $path = $args->{path};
 
     my $i = 0;
-    for my $undo_step (reverse @$undo_list) {
+    for my $undo_step (reverse @$undo_data) {
         $log->tracef("undo[%d of 0..%d]: %s",
-                     $i, scalar(@$undo_list)-1, $undo_step);
+                     $i, scalar(@$undo_data)-1, $undo_step);
         die "BUG: Invalid undo_step[$i], must be arrayref"
             unless ref($undo_step) eq 'ARRAY';
         my ($cmd, @arg) = @$undo_step;
         my $err;
-        if ($cmd eq 'move') {
+        if ($cmd eq 'move_to_path') {
             rmove $arg[0], $path or $err = "$! ($arg[0])";
-        } elsif ($cmd eq 'mkfile') {
+        } elsif ($cmd eq 'rmfile') {
             unlink $path or $err = $!;
-        } elsif ($cmd eq 'mkdir') {
+        } elsif ($cmd eq 'rmdir') {
             rmdir $path or $err = $!;
-        } elsif ($cmd eq 'mksym') {
+        } elsif ($cmd eq 'rmsym') {
             symlink $arg[0], $path or $err = $!;
-        } elsif ($cmd eq 'content') {
+        } elsif ($cmd eq 'set_content') {
             # XXX doesn't do atomic write here, for simplicity (doesn't have to
             # set owner and mode again). but we probably should.
             #write_file($path, {err_mode=>'quiet', atomic=>1}, ${$arg[0]})
@@ -472,7 +472,7 @@ Setup::File - Ensure file (non-)existence, mode/permission, and content
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 

@@ -1,6 +1,6 @@
-package Setup::Dir;
+package Setup::File::Dir;
 BEGIN {
-  $Setup::Dir::VERSION = '0.02';
+  $Setup::File::Dir::VERSION = '0.03';
 }
 # ABSTRACT: Ensure dir (non-)existence & mode/permission
 
@@ -93,15 +93,15 @@ sub setup_dir  { Setup::File::_setup_file_or_dir('dir' , @_) }
 
 =head1 NAME
 
-Setup::Dir - Ensure dir (non-)existence & mode/permission
+Setup::File::Dir - Ensure dir (non-)existence & mode/permission
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 
- use Setup::Dir 'setup_dir';
+ use Setup::File::Dir 'setup_dir';
 
  # simple usage (doesn't save undo data)
  $res = setup_dir path => '/etc/myapp',
