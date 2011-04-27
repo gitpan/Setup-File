@@ -1,6 +1,6 @@
 package Setup::File::Dir;
 BEGIN {
-  $Setup::File::Dir::VERSION = '0.03';
+  $Setup::File::Dir::VERSION = '0.04';
 }
 # ABSTRACT: Ensure dir (non-)existence & mode/permission
 
@@ -97,7 +97,7 @@ Setup::File::Dir - Ensure dir (non-)existence & mode/permission
 
 =head1 VERSION
 
-version 0.03
+version 0.04
 
 =head1 SYNOPSIS
 
@@ -141,8 +141,8 @@ characteristics:
 
 =item * used to reach some desired state
 
-For example, Setup::Symlink::setup_symlink makes sure a symlink exists to the
-desired target. Setup::File::setup_file makes sure a file exists with the
+For example, Setup::File::Symlink::setup_symlink makes sure a symlink exists to
+the desired target. Setup::File::setup_file makes sure a file exists with the
 correct content/ownership/permission.
 
 =item * do nothing if desired state has been reached
