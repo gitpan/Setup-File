@@ -1,6 +1,6 @@
 package Setup::File;
 BEGIN {
-  $Setup::File::VERSION = '0.04';
+  $Setup::File::VERSION = '0.05';
 }
 # ABSTRACT: Ensure file (non-)existence, mode/permission, and content
 
@@ -118,7 +118,11 @@ _
     },
     features => {undo=>1, dry_run=>1},
 };
-sub setup_file { _setup_file_or_dir('file', @_) }
+sub setup_file {
+    my %args = @_;
+    $log->tracef("=> setup_file(%s)", \%args); # TMP
+    _setup_file_or_dir('file', %args);
+}
 
 # return 1 if dir exists and empty
 sub _dir_is_empty {
@@ -179,8 +183,6 @@ sub _setup_file_or_dir {
     my $steps;
     if ($undo_action eq 'undo') {
         $steps = $args{-undo_data} or return [400, "Please supply -undo_data"];
-    } elsif ($undo_action eq 'redo') {
-        $steps = $args{-redo_data} or return [400, "Please supply -redo_data"];
     } else {
         $steps = [];
         {
@@ -295,7 +297,7 @@ sub _setup_file_or_dir {
     # perform the steps
     my $rollback;
     my $undo_steps = [];
-  STEPS:
+  STEP:
     for my $i (0..@$steps-1) {
         my $step = $steps->[$i];
         next unless defined $step; # can happen even when steps=[], due to redo
@@ -453,20 +455,16 @@ sub _setup_file_or_dir {
                              $undo_steps);
                 $rollback = $err;
                 $steps = $undo_steps;
-                redo STEPS;
+                goto STEP; # perform steps all over again
             }
         }
     }
     return [500, "Error (rollbacked): $rollback"] if $rollback;
 
     my $meta = {};
-    if ($undo_action =~ /^(re)?do$/) { $meta->{undo_data} = $undo_steps }
-    elsif ($undo_action eq 'undo')   { $meta->{redo_data} = $undo_steps }
+    $meta->{undo_data} = $undo_steps if $save_undo;
     $log->tracef("meta: %s", $meta);
-    return [@$steps ? 200 : 304,
-            @$steps ? "OK" : "Nothing done",
-            undef,
-            $meta];
+    return [@$steps ? 200 : 304, @$steps ? "OK" : "Nothing done", undef, $meta];
 }
 
 1;
@@ -480,7 +478,7 @@ Setup::File - Ensure file (non-)existence, mode/permission, and content
 
 =head1 VERSION
 
-version 0.04
+version 0.05
 
 =head1 SYNOPSIS
 
@@ -492,19 +490,16 @@ version 0.04
                       gen_content_code => sub { "#!/bin/sh\n" },
                       owner => 'root', group => 0,
                       mode => '+x';
- die unless $res->[0] == 200;
+ die unless $res->[0] == 200 || $res->[0] == 304;
 
  # perform setup and save undo data (undo data should be serializable)
  $res = setup_file ..., -undo_action => 'do';
- die unless $res->[0] == 200;
+ die unless $res->[0] == 200 || $res->[0] == 304;
  my $undo_data = $res->[3]{undo_data};
 
  # perform undo
  $res = setup_file ..., -undo_action => "undo", -undo_data=>$undo_data;
- die unless $res->[0] == 200;
-
- # state that file must not exist
- setup_file path => '/foo/bar', should_exist => 0;
+ die unless $res->[0] == 200 || $res->[0] == 304;
 
 =head1 DESCRIPTION
 
@@ -518,34 +513,65 @@ This module's functions have L<Sub::Spec> specs.
 
 =head1 THE SETUP MODULES FAMILY
 
-I use the C<Setup::> namespace for the Setup modules family, typically used in
-installers (or other applications). The modules in Setup family have these
-characteristics:
+I use the C<Setup::> namespace for the Setup modules family. These family of
+modules are typically used in installers. They must support uninstallation
+(reverse/undo) and be flexible enough to deal with external state changes.
 
-=over 4
+To "setup" something means to set something into a desired state. For example,
+L<Setup::File> sets up a file with a specified permission mode, ownership, and
+content. If the file doesn't exist it will be created; if a directory exists
+instead, it will be removed and replaced with the file; if the file already
+exists but with incorrect permission/owner/content, it will be corrected. If
+everything is already correct, nothing is done (the function returns 304
+status). Another example is L<Setup::Unix::User>, which will setup a Unix user
+(with the correct specified group membership).
 
-=item * used to reach some desired state
+A simulation (dry run) mode also exists: if you pass L<-dry_run> => 1 argument
+to the function, it will check states and report inconsistencies, but will
+modify nothing and return 200 status (or 304) immediately instead. See the
+"dry_run" feature in L<Sub::Spec::Clause::features> for more details on dry
+running.
 
-For example, Setup::File::Symlink::setup_symlink makes sure a symlink exists to
-the desired target. Setup::File::setup_file makes sure a file exists with the
-correct content/ownership/permission.
+After the setup, the function returns undo data, which can be used to perform
+undo ("unsetup", "uninstallation") later. The undo data is serializable and thus
+can be stored in persistent storage. When doing undo, the undo data is fed into
+the C<-undo_data> argument, along with other same arguments specified during the
+previous "do" phase. See the "undo" feature in L<Sub::Spec::Clause::features>
+for more details on the undo protocol. Undo will reverse all actions done by the
+function in the "do" phase; for example, if a file was created by the function
+it will be deleted (if it hasn't changed since the creation), if an existing
+file's mode/ownership was changed, it will be restored, and so on.
 
-=item * do nothing if desired state has been reached
+There could be various state changes between the time of do and undo; a file can
+be deleted or modified by other processes. The undo must be flexible enough so
+it can reverse whatever state changes the previous do phase did whenever it can,
+but not disrupt other processes' changes.
 
-=item * support dry-run (simulation) mode
+After an undo, the function returns undo_data, which can be used to perform undo
+of undo (redo) later.
 
-=item * support undo to restore state to previous/original one
+=head2 Implementation
 
-=back
+Below is the general view on implementation of a setup module. For more details,
+delve directly into the source code.
 
-This is the general logic flow of a typical setup function (for more details,
-delve directly into source code): first, setup an empty list of steps. Then do a
-series of state check. If a state is incorrect, add a step to fix that
-situation. Proceed to the next state check. In the end, we end up with the list
-of steps. Return 304 if list if empty (meaning all desired states have been
-reached). Otherwise, perform each step consequently, while also append to list
-of undo steps for each step. If an error is encountered, perform a roll back
-(using the undo steps). If all steps have been done, return 200.
+We divide setup into a series of unit steps. For example, setting up a file is
+comprised of steps: create, chown, chmod. Or it can just be: set_content, chown,
+chmod, if the file already exists. Or: rm, create, chown, chmod, if a directory
+exists and must be removed first.
+
+To perform setup, we begin with an empty list of steps and add necessary steps
+according to the current state. To perform undo, we are given undo data, which
+is just the list of steps generated by previous invocation.
+
+After we have the list of steps, we perform them one by one sequentially. Each
+step comes with its own state checking and can be skipped if the desired state
+is already reached. After performing a step, we also add an undo step to the
+undo steps list. If an error is encountered in a step, we can perform a
+rollback, which basically means we perform the undo steps formed up to that
+point. (If error is encountered during rollback, we die.)
+
+After all steps have been done successfully, we return 200.
 
 =head1 FUNCTIONS
 
@@ -650,8 +676,6 @@ doesn't.
 =back
 
 =head1 SEE ALSO
-
-L<Sub::Spec>, specifically L<Sub::Spec::Clause::features> on dry-run/undo.
 
 Other modules in Setup:: namespace.
 

@@ -2,7 +2,7 @@ NAME
     Setup::File - Ensure file (non-)existence, mode/permission, and content
 
 VERSION
-    version 0.04
+    version 0.05
 
 SYNOPSIS
      use Setup::File 'setup_file';
@@ -13,19 +13,16 @@ SYNOPSIS
                           gen_content_code => sub { "#!/bin/sh\n" },
                           owner => 'root', group => 0,
                           mode => '+x';
-     die unless $res->[0] == 200;
+     die unless $res->[0] == 200 || $res->[0] == 304;
 
      # perform setup and save undo data (undo data should be serializable)
      $res = setup_file ..., -undo_action => 'do';
-     die unless $res->[0] == 200;
+     die unless $res->[0] == 200 || $res->[0] == 304;
      my $undo_data = $res->[3]{undo_data};
 
      # perform undo
      $res = setup_file ..., -undo_action => "undo", -undo_data=>$undo_data;
-     die unless $res->[0] == 200;
-
-     # state that file must not exist
-     setup_file path => '/foo/bar', should_exist => 0;
+     die unless $res->[0] == 200 || $res->[0] == 304;
 
 DESCRIPTION
     This module provides one function: setup_file.
@@ -37,31 +34,68 @@ DESCRIPTION
     This module's functions have Sub::Spec specs.
 
 THE SETUP MODULES FAMILY
-    I use the "Setup::" namespace for the Setup modules family, typically
-    used in installers (or other applications). The modules in Setup family
-    have these characteristics:
+    I use the "Setup::" namespace for the Setup modules family. These family
+    of modules are typically used in installers. They must support
+    uninstallation (reverse/undo) and be flexible enough to deal with
+    external state changes.
 
-    *   used to reach some desired state
+    To "setup" something means to set something into a desired state. For
+    example, Setup::File sets up a file with a specified permission mode,
+    ownership, and content. If the file doesn't exist it will be created; if
+    a directory exists instead, it will be removed and replaced with the
+    file; if the file already exists but with incorrect
+    permission/owner/content, it will be corrected. If everything is already
+    correct, nothing is done (the function returns 304 status). Another
+    example is Setup::Unix::User, which will setup a Unix user (with the
+    correct specified group membership).
 
-        For example, Setup::File::Symlink::setup_symlink makes sure a
-        symlink exists to the desired target. Setup::File::setup_file makes
-        sure a file exists with the correct content/ownership/permission.
+    A simulation (dry run) mode also exists: if you pass -dry_run => 1
+    argument to the function, it will check states and report
+    inconsistencies, but will modify nothing and return 200 status (or 304)
+    immediately instead. See the "dry_run" feature in
+    Sub::Spec::Clause::features for more details on dry running.
 
-    *   do nothing if desired state has been reached
+    After the setup, the function returns undo data, which can be used to
+    perform undo ("unsetup", "uninstallation") later. The undo data is
+    serializable and thus can be stored in persistent storage. When doing
+    undo, the undo data is fed into the "-undo_data" argument, along with
+    other same arguments specified during the previous "do" phase. See the
+    "undo" feature in Sub::Spec::Clause::features for more details on the
+    undo protocol. Undo will reverse all actions done by the function in the
+    "do" phase; for example, if a file was created by the function it will
+    be deleted (if it hasn't changed since the creation), if an existing
+    file's mode/ownership was changed, it will be restored, and so on.
 
-    *   support dry-run (simulation) mode
+    There could be various state changes between the time of do and undo; a
+    file can be deleted or modified by other processes. The undo must be
+    flexible enough so it can reverse whatever state changes the previous do
+    phase did whenever it can, but not disrupt other processes' changes.
 
-    *   support undo to restore state to previous/original one
+    After an undo, the function returns undo_data, which can be used to
+    perform undo of undo (redo) later.
 
-    This is the general logic flow of a typical setup function (for more
-    details, delve directly into source code): first, setup an empty list of
-    steps. Then do a series of state check. If a state is incorrect, add a
-    step to fix that situation. Proceed to the next state check. In the end,
-    we end up with the list of steps. Return 304 if list if empty (meaning
-    all desired states have been reached). Otherwise, perform each step
-    consequently, while also append to list of undo steps for each step. If
-    an error is encountered, perform a roll back (using the undo steps). If
-    all steps have been done, return 200.
+  Implementation
+    Below is the general view on implementation of a setup module. For more
+    details, delve directly into the source code.
+
+    We divide setup into a series of unit steps. For example, setting up a
+    file is comprised of steps: create, chown, chmod. Or it can just be:
+    set_content, chown, chmod, if the file already exists. Or: rm, create,
+    chown, chmod, if a directory exists and must be removed first.
+
+    To perform setup, we begin with an empty list of steps and add necessary
+    steps according to the current state. To perform undo, we are given undo
+    data, which is just the list of steps generated by previous invocation.
+
+    After we have the list of steps, we perform them one by one
+    sequentially. Each step comes with its own state checking and can be
+    skipped if the desired state is already reached. After performing a
+    step, we also add an undo step to the undo steps list. If an error is
+    encountered in a step, we can perform a rollback, which basically means
+    we perform the undo steps formed up to that point. (If error is
+    encountered during rollback, we die.)
+
+    After all steps have been done successfully, we return 200.
 
 FUNCTIONS
     None are exported by default, but they are exportable.
@@ -161,8 +195,6 @@ FUNCTIONS
         created if it doesn't.
 
 SEE ALSO
-    Sub::Spec, specifically Sub::Spec::Clause::features on dry-run/undo.
-
     Other modules in Setup:: namespace.
 
 AUTHOR

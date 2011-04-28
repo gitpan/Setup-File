@@ -1,6 +1,6 @@
 package Setup::File::Dir;
 BEGIN {
-  $Setup::File::Dir::VERSION = '0.04';
+  $Setup::File::Dir::VERSION = '0.05';
 }
 # ABSTRACT: Ensure dir (non-)existence & mode/permission
 
@@ -84,7 +84,11 @@ _
     },
     features => {undo=>1, dry_run=>1},
 };
-sub setup_dir  { Setup::File::_setup_file_or_dir('dir' , @_) }
+sub setup_dir  {
+    my %args = @_;
+    $log->tracef("=> setup_dir(%s)", \%args); # TMP
+    Setup::File::_setup_file_or_dir('dir' , %args);
+}
 
 1;
 
@@ -97,7 +101,7 @@ Setup::File::Dir - Ensure dir (non-)existence & mode/permission
 
 =head1 VERSION
 
-version 0.04
+version 0.05
 
 =head1 SYNOPSIS
 
@@ -133,25 +137,9 @@ This module's functions have L<Sub::Spec> specs.
 
 =head1 THE SETUP MODULES FAMILY
 
-I use the C<Setup::> namespace for the Setup modules family, typically used in
-installers (or other applications). The modules in Setup family have these
-characteristics:
-
-=over 4
-
-=item * used to reach some desired state
-
-For example, Setup::File::Symlink::setup_symlink makes sure a symlink exists to
-the desired target. Setup::File::setup_file makes sure a file exists with the
-correct content/ownership/permission.
-
-=item * do nothing if desired state has been reached
-
-=item * support dry-run (simulation) mode
-
-=item * support undo to restore state to previous/original one
-
-=back
+I use the C<Setup::> namespace for the Setup modules family. See C<Setup::File>
+for more details on the goals, characteristics, and implementation of Setup
+modules family.
 
 =head1 FUNCTIONS
 
@@ -232,7 +220,7 @@ doesn't.
 
 =head1 SEE ALSO
 
-L<Sub::Spec>, specifically L<Sub::Spec::Clause::features> on dry-run/undo.
+L<Setup::File>.
 
 Other modules in Setup:: namespace.
 
