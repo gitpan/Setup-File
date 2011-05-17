@@ -12,12 +12,12 @@ my %module_build_args = (
   'configure_requires' => {
     'Module::Build' => '0.3601'
   },
-  'dist_abstract' => 'Ensure file (non-)existence, mode/permission, and content',
+  'dist_abstract' => 'Setup file (existence, mode, permission, content)',
   'dist_author' => [
     'Steven Haryanto <stevenharyanto@gmail.com>'
   ],
   'dist_name' => 'Setup-File',
-  'dist_version' => '0.05',
+  'dist_version' => '0.06',
   'license' => 'perl',
   'module_name' => 'Setup::File',
   'recommends' => {},
@@ -29,6 +29,7 @@ my %module_build_args = (
     'File::chdir' => '0',
     'File::chmod' => '0',
     'Log::Any' => '0',
+    'Sub::Spec' => '0.13',
     'Test::More' => '0.96',
     'UUID::Random' => '0',
     'perl' => '5.010000'

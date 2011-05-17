@@ -1,8 +1,8 @@
 package Setup::File::Dir;
 BEGIN {
-  $Setup::File::Dir::VERSION = '0.05';
+  $Setup::File::Dir::VERSION = '0.06';
 }
-# ABSTRACT: Ensure dir (non-)existence & mode/permission
+# ABSTRACT: Setup directory (existence, mode, permission)
 
 use 5.010;
 use strict;
@@ -18,8 +18,14 @@ our @EXPORT_OK = qw(setup_dir);
 our %SPEC;
 
 $SPEC{setup_dir} = {
-    summary  => "Ensure directory (non-)existence and mode/permission",
+    summary  => "Setup directory (existence, mode, permission)",
     description => <<'_',
+
+On do, will create directory (if it doesn't already exist) and fix its
+mode/permission.
+
+On undo, will restore old mode/permission (and delete directory if it is empty
+and was created by this function).
 
 If given, -undo_hint should contain {tmp_dir=>...} to specify temporary
 directory to save replaced file/dir. Temporary directory defaults to ~/.setup,
@@ -86,7 +92,6 @@ _
 };
 sub setup_dir  {
     my %args = @_;
-    $log->tracef("=> setup_dir(%s)", \%args); # TMP
     Setup::File::_setup_file_or_dir('dir' , %args);
 }
 
@@ -97,11 +102,11 @@ sub setup_dir  {
 
 =head1 NAME
 
-Setup::File::Dir - Ensure dir (non-)existence & mode/permission
+Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-version 0.05
+version 0.06
 
 =head1 SYNOPSIS
 
@@ -137,7 +142,7 @@ This module's functions have L<Sub::Spec> specs.
 
 =head1 THE SETUP MODULES FAMILY
 
-I use the C<Setup::> namespace for the Setup modules family. See C<Setup::File>
+I use the C<Setup::> namespace for the Setup modules family. See L<Setup::File>
 for more details on the goals, characteristics, and implementation of Setup
 modules family.
 
@@ -148,7 +153,13 @@ None are exported by default, but they are exportable.
 =head2 setup_dir(%args) -> [STATUS_CODE, ERR_MSG, RESULT]
 
 
-Ensure directory (non-)existence and mode/permission.
+Setup directory (existence, mode, permission).
+
+On do, will create directory (if it doesn't already exist) and fix its
+mode/permission.
+
+On undo, will restore old mode/permission (and delete directory if it is empty
+and was created by this function).
 
 If given, -undo_hint should contain {tmp_dir=>...} to specify temporary
 directory to save replaced file/dir. Temporary directory defaults to ~/.setup,

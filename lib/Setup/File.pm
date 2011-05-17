@@ -1,8 +1,8 @@
 package Setup::File;
 BEGIN {
-  $Setup::File::VERSION = '0.05';
+  $Setup::File::VERSION = '0.06';
 }
-# ABSTRACT: Ensure file (non-)existence, mode/permission, and content
+# ABSTRACT: Setup file (existence, mode, permission, content)
 
 use 5.010;
 use strict;
@@ -24,8 +24,9 @@ our @EXPORT_OK = qw(setup_file);
 our %SPEC;
 
 $SPEC{setup_file} = {
-    summary  => "Ensure file (non-)existence, mode/permission, and content",
+    summary  => "Setup file (existence, mode, permission, content)",
     description => <<'_',
+
 On do, will create file (if it doesn't already exist) and correct
 mode/permission as well as content.
 
@@ -120,7 +121,6 @@ _
 };
 sub setup_file {
     my %args = @_;
-    $log->tracef("=> setup_file(%s)", \%args); # TMP
     _setup_file_or_dir('file', %args);
 }
 
@@ -145,6 +145,7 @@ sub _setup_file_or_dir {
 
     # check args
     my $path           = $args{path};
+    $path or return [400, "Please specify path"];
     $path              =~ m!^/!
         or return [400, "Please specify an absolute path"];
     my $should_exist   = $args{should_exist};
@@ -300,7 +301,6 @@ sub _setup_file_or_dir {
   STEP:
     for my $i (0..@$steps-1) {
         my $step = $steps->[$i];
-        next unless defined $step; # can happen even when steps=[], due to redo
         $log->tracef("step %d of 0..%d: %s", $i, @$steps-1, $step);
         my $err;
         return [400, "Invalid step (not array)"] unless ref($step) eq 'ARRAY';
@@ -474,11 +474,11 @@ sub _setup_file_or_dir {
 
 =head1 NAME
 
-Setup::File - Ensure file (non-)existence, mode/permission, and content
+Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-version 0.05
+version 0.06
 
 =head1 SYNOPSIS
 
@@ -580,7 +580,7 @@ None are exported by default, but they are exportable.
 =head2 setup_file(%args) -> [STATUS_CODE, ERR_MSG, RESULT]
 
 
-Ensure file (non-)existence, mode/permission, and content.
+Setup file (existence, mode, permission, content).
 
 On do, will create file (if it doesn't already exist) and correct
 mode/permission as well as content.

@@ -1,5 +1,5 @@
 ---
-abstract: 'Ensure file (non-)existence, mode/permission, and content'
+abstract: 'Setup file (existence, mode, permission, content)'
 author:
   - 'Steven Haryanto <stevenharyanto@gmail.com>'
 build_requires:
@@ -20,10 +20,11 @@ requires:
   File::chdir: 0
   File::chmod: 0
   Log::Any: 0
+  Sub::Spec: 0.13
   Test::More: 0.96
   UUID::Random: 0
   perl: 5.010000
 resources:
   homepage: http://search.cpan.org/dist/Setup-File/
   repository: http://github.com/sharyanto/perl-Setup-File
-version: 0.05
+version: 0.06

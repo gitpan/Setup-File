@@ -1,8 +1,8 @@
 NAME
-    Setup::File - Ensure file (non-)existence, mode/permission, and content
+    Setup::File - Setup file (existence, mode, permission, content)
 
 VERSION
-    version 0.05
+    version 0.06
 
 SYNOPSIS
      use Setup::File 'setup_file';
@@ -101,7 +101,7 @@ FUNCTIONS
     None are exported by default, but they are exportable.
 
   setup_file(%args) -> [STATUS_CODE, ERR_MSG, RESULT]
-    Ensure file (non-)existence, mode/permission, and content.
+    Setup file (existence, mode, permission, content).
 
     On do, will create file (if it doesn't already exist) and correct
     mode/permission as well as content.
