@@ -2,7 +2,7 @@ NAME
     Setup::File - Setup file (existence, mode, permission, content)
 
 VERSION
-    version 0.06
+    version 0.07
 
 SYNOPSIS
      use Setup::File 'setup_file';
@@ -97,6 +97,27 @@ THE SETUP MODULES FAMILY
 
     After all steps have been done successfully, we return 200.
 
+  Undo data
+    Undo data should be a list of steps:
+
+     [undo_step1, undo_step2, ...]
+
+    Undo step is usually a command followed by a list of args, examples:
+
+     ["reset"]
+     ["rm", "file1"]
+     ["do", "Setup::File::setup_file", {arg1=>..., arg2=>...}]
+     ["undo", "Setup::File::setup_file", $args, $undo_data]
+
+    Because undo data might be needed much later after it is generated (e.g.
+    months or even years later when a software is finally uninstalled),
+    please plan a stable list of commands and its arguments carefully, so
+    much newer version of your setup module can still perform undo using
+    undo data produced by older version of your setup module. Existing
+    commands should still be supported as long as possible, unless
+    absolutely necessary that it is abandoned. Changes in the order of
+    command arguments should also be kept minimal.
+
 FUNCTIONS
     None are exported by default, but they are exportable.
 
@@ -151,6 +172,15 @@ FUNCTIONS
         be passed the file content and should return a boolean value
         indicating whether content is acceptable.
 
+        Alternatively you can use the simpler 'content' argument.
+
+    *   content => *str*
+
+        Desired file content.
+
+        Alternatively you can also use check_content_code &
+        gen_content_code.
+
     *   gen_content_code => *code*
 
         Code to generate content.
@@ -161,6 +191,8 @@ FUNCTIONS
 
         Code will be passed the current content (or undef) and should return
         the new content.
+
+        Alternatively you can use the simpler 'content' argument.
 
     *   group => *str*
 

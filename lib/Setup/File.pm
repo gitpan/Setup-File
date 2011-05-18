@@ -1,6 +1,6 @@
 package Setup::File;
 BEGIN {
-  $Setup::File::VERSION = '0.06';
+  $Setup::File::VERSION = '0.07';
 }
 # ABSTRACT: Setup file (existence, mode, permission, content)
 
@@ -68,6 +68,14 @@ _
         group => ['str' => {
             summary => 'Expected group',
         }],
+        content => ['str' => {
+            summary => 'Desired file content',
+            description => <<'_',
+
+Alternatively you can also use check_content_code & gen_content_code.
+
+_
+        }],
         check_content_code => ['code' => {
             summary => 'Code to check content',
             description => <<'_',
@@ -75,6 +83,8 @@ _
 If unset, file will not be checked for its content. If set, code will be called
 whenever file content needs to be checked. Code will be passed the file content
 and should return a boolean value indicating whether content is acceptable.
+
+Alternatively you can use the simpler 'content' argument.
 
 _
         }],
@@ -88,6 +98,8 @@ will be used instead.
 
 Code will be passed the current content (or undef) and should return the new
 content.
+
+Alternatively you can use the simpler 'content' argument.
 
 _
         }],
@@ -156,11 +168,16 @@ sub _setup_file_or_dir {
     my $owner          = $args{owner};
     my $group          = $args{group};
     my $mode           = $args{mode};
+    my $content        = $args{content};
     my $check_ct       = $args{check_content_code};
     my $gen_ct         = $args{gen_content_code};
     return [400, "If check_content_code is specified, ".
                 "gen_content_code must also be specified"]
         if defined($check_ct) && !defined($gen_ct);
+    return [400, "If content is specified, then check_content_code/".
+                "gen_content_code must not be specified (and vice versa)"]
+        if defined($content) && (defined($check_ct) || defined($gen_ct));
+
     my $cur_content;
 
     # check current state and collect steps
@@ -267,13 +284,14 @@ sub _setup_file_or_dir {
                     push @$steps, ["chown", undef, $owner];
                 }
             }
-            if (defined $check_ct) {
+            if ($check_ct || defined($content)) {
                 $cur_content = read_file($path, err_mode=>'quiet');
                 return [500, "Can't read file content: $!"]
                     unless defined($cur_content);
-                my $res = $check_ct->(\$cur_content);
+                my $res = $check_ct ? $check_ct->(\$cur_content) :
+                    $cur_content eq $content;
                 unless ($res) {
-                    $log->tracef("nok: file content fails check_content_code");
+                    $log->tracef("nok: file content incorrect");
                     push @$steps, ["set_content", \($gen_ct->(\$cur_content))];
                 }
             }
@@ -392,7 +410,8 @@ sub _setup_file_or_dir {
                         if (defined $step->[1]) {
                             $ct = $step->[1];
                         } else {
-                            $ct = $gen_ct ? $gen_ct->(\$cur_content) : "";
+                            $ct = $gen_ct ? $gen_ct->(\$cur_content) :
+                                defined($content) ? $content : "";
                         }
                         my $ct_hash = md5_hex($ct);
                         write_file($path, {err_mode=>'quiet', atomic=>1}, $ct)
@@ -478,7 +497,7 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-version 0.06
+version 0.07
 
 =head1 SYNOPSIS
 
@@ -573,6 +592,27 @@ point. (If error is encountered during rollback, we die.)
 
 After all steps have been done successfully, we return 200.
 
+=head2 Undo data
+
+Undo data should be a list of steps:
+
+ [undo_step1, undo_step2, ...]
+
+Undo step is usually a command followed by a list of args, examples:
+
+ ["reset"]
+ ["rm", "file1"]
+ ["do", "Setup::File::setup_file", {arg1=>..., arg2=>...}]
+ ["undo", "Setup::File::setup_file", $args, $undo_data]
+
+Because undo data might be needed much later after it is generated (e.g. months
+or even years later when a software is finally uninstalled), please plan a
+stable list of commands and its arguments carefully, so much newer version of
+your setup module can still perform undo using undo data produced by older
+version of your setup module. Existing commands should still be supported as
+long as possible, unless absolutely necessary that it is abandoned. Changes in
+the order of command arguments should also be kept minimal.
+
 =head1 FUNCTIONS
 
 None are exported by default, but they are exportable.
@@ -630,6 +670,14 @@ If unset, file will not be checked for its content. If set, code will be called
 whenever file content needs to be checked. Code will be passed the file content
 and should return a boolean value indicating whether content is acceptable.
 
+Alternatively you can use the simpler 'content' argument.
+
+=item * B<content> => I<str>
+
+Desired file content.
+
+Alternatively you can also use check_content_code & gen_content_code.
+
 =item * B<gen_content_code> => I<code>
 
 Code to generate content.
@@ -640,6 +688,8 @@ will be used instead.
 
 Code will be passed the current content (or undef) and should return the new
 content.
+
+Alternatively you can use the simpler 'content' argument.
 
 =item * B<group> => I<str>
 
