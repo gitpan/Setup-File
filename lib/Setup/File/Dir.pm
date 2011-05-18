@@ -1,6 +1,6 @@
 package Setup::File::Dir;
 BEGIN {
-  $Setup::File::Dir::VERSION = '0.07';
+  $Setup::File::Dir::VERSION = '0.08';
 }
 # ABSTRACT: Setup directory (existence, mode, permission)
 
@@ -106,7 +106,7 @@ Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-version 0.07
+version 0.08
 
 =head1 SYNOPSIS
 
