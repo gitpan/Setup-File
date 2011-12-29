@@ -1,6 +1,6 @@
 package Setup::File::Dir;
 BEGIN {
-  $Setup::File::Dir::VERSION = '0.09';
+  $Setup::File::Dir::VERSION = '0.10';
 }
 # ABSTRACT: Setup directory (existence, mode, permission)
 
@@ -30,6 +30,9 @@ and was created by this function).
 If given, -undo_hint should contain {tmp_dir=>...} to specify temporary
 directory to save replaced file/dir. Temporary directory defaults to ~/.setup,
 it will be created if not exists.
+
+Will *not* create intermediate directories like "mkdir -p". Create intermediate
+directories using several setup_dir() invocation.
 
 _
     args     => {
@@ -73,7 +76,7 @@ true).
 Note: if you want to setup symlink instead, use Setup::Symlink.
 
 _
-            default => 0,
+            default => 1,
         }],
         replace_symlink => ['bool*' => {
             summary => "Replace existing symlink if it needs to be replaced",
@@ -106,7 +109,7 @@ Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-version 0.09
+version 0.10
 
 =head1 SYNOPSIS
 
@@ -165,6 +168,9 @@ If given, -undo_hint should contain {tmp_dir=>...} to specify temporary
 directory to save replaced file/dir. Temporary directory defaults to ~/.setup,
 it will be created if not exists.
 
+Will *not* create intermediate directories like "mkdir -p". Create intermediate
+directories using several setup_dir() invocation.
+
 Returns a 3-element arrayref. STATUS_CODE is 200 on success, or an error code
 between 3xx-5xx (just like in HTTP). ERR_MSG is a string containing error
 message, RESULT is the actual result.
@@ -185,7 +191,7 @@ Path to dir.
 
 Dir path needs to be absolute so it's normalized.
 
-=item * B<allow_symlink>* => I<bool> (default C<0>)
+=item * B<allow_symlink>* => I<bool> (default C<1>)
 
 Whether symlink is allowed.
 

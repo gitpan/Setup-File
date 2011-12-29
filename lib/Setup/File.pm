@@ -1,6 +1,6 @@
 package Setup::File;
 BEGIN {
-  $Setup::File::VERSION = '0.09';
+  $Setup::File::VERSION = '0.10';
 }
 # ABSTRACT: Setup file (existence, mode, permission, content)
 
@@ -114,7 +114,7 @@ true).
 Note: if you want to setup symlink instead, use Setup::Symlink.
 
 _
-            default => 0,
+            default => 1,
         }],
         replace_symlink => ['bool*' => {
             summary => "Replace existing symlink if it needs to be replaced",
@@ -325,6 +325,7 @@ sub _setup_file_or_dir {
         my $err;
         return [400, "Invalid step (not array)"] unless ref($step) eq 'ARRAY';
         if ($step->[0] eq 'rmsym') {
+            $log->info("Removing symlink $path ...");
             if ((-l $path) || (-e _)) {
                 my $t = readlink($path) // "";
                 if (unlink $path) {
@@ -335,6 +336,7 @@ sub _setup_file_or_dir {
             }
         } elsif ($step->[0] eq 'ln') {
             my $t = $step->[1];
+            $log->info("Creating symlink $path -> $t ...");
             unless ((-l $path) && readlink($path) eq $t) {
                 if (symlink $t, $path) {
                     unshift @$undo_steps, ["rmsym"];
@@ -343,6 +345,7 @@ sub _setup_file_or_dir {
                 }
             }
         } elsif ($step->[0] eq 'rm_r') {
+            $log->info("Removing file/dir $path ...");
             if ((-l $path) || (-e _)) {
                 # do not bother to save file/dir if not asked
                 if ($save_undo) {
@@ -359,6 +362,7 @@ sub _setup_file_or_dir {
                 }
             }
         } elsif ($step->[0] eq 'rmfile') {
+            $log->info("Removing file $path ...");
             # will only delete if content is unchanged from time of create,
             # content is represented by hash
             if ((-l $path) || (-e _)) {
@@ -367,7 +371,7 @@ sub _setup_file_or_dir {
                     $err = "Can't read file: $!";
                 } else {
                     my $ct_hash = md5_hex($ct);
-                    if ($ct_hash ne $step->[1]) {
+                    if (defined($step->[1]) && $ct_hash ne $step->[1]) {
                         $log->warn("File content has changed, not removing");
                     } else {
                         if (unlink $path) {
@@ -379,6 +383,7 @@ sub _setup_file_or_dir {
                 }
             }
         } elsif ($step->[0] eq 'rmdir') {
+            $log->info("Removing dir $path ...");
             if ((-l $path) || (-e _)) {
                 if (rmdir $path) {
                     unshift @$undo_steps, ["create"];
@@ -387,6 +392,7 @@ sub _setup_file_or_dir {
                 }
             }
         } elsif ($step->[0] eq 'restore') {
+            $log->info("Restoring $step->[1] -> $path ...");
             if ((-l $path) || (-e _)) {
                 $err = "Can't restore $step->[1] -> $path: already exists";
             } elsif (rmove $step->[1], $path) {
@@ -395,6 +401,7 @@ sub _setup_file_or_dir {
                 $err = "Can't restore $step->[1] -> $path: $!";
             }
         } elsif ($step->[0] eq 'create') {
+            $log->info("Creating $path ...");
             if ((-l $path) || (-e _)) {
                 $err = "Can't create $path: already exists";
             } else {
@@ -413,7 +420,8 @@ sub _setup_file_or_dir {
                             $ct = $step->[1];
                         } else {
                             $ct = $gen_ct ? $gen_ct->(\$cur_content) :
-                                defined($content) ? $content : "";
+                                $content;
+                            $ct //= "";
                         }
                         my $ct_hash = md5_hex($ct);
                         write_file($path, {err_mode=>'quiet', atomic=>1}, $ct)
@@ -427,6 +435,7 @@ sub _setup_file_or_dir {
                 }
             }
         } elsif ($step->[0] eq 'set_content') {
+            $log->info("Setting content ...");
             {
                 my $cur_content = read_file($path, err_mode=>'quiet');
                 defined($cur_content)
@@ -441,6 +450,7 @@ sub _setup_file_or_dir {
                     do { $log->warn("Can't chmod: $!") };
             }
         } elsif ($step->[0] eq 'chmod') {
+            $log->info("Chmod $path ...");
             my @st = lstat($path);
             if (!@st) {
                 $log->warn("Can't stat, skipping chmod");
@@ -452,6 +462,7 @@ sub _setup_file_or_dir {
                 }
             }
         } elsif ($step->[0] eq 'chown') {
+            $log->info("Chown $path ...");
             my @st = lstat($path);
             if (!@st) {
                 $log->warn("Can't stat, skipping chmod");
@@ -499,7 +510,7 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-version 0.09
+version 0.10
 
 =head1 SYNOPSIS
 
@@ -654,7 +665,7 @@ Path to file.
 
 File path needs to be absolute so it's normalized.
 
-=item * B<allow_symlink>* => I<bool> (default C<0>)
+=item * B<allow_symlink>* => I<bool> (default C<1>)
 
 Whether symlink is allowed.
 
