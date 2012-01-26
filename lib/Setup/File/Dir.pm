@@ -1,8 +1,4 @@
 package Setup::File::Dir;
-BEGIN {
-  $Setup::File::Dir::VERSION = '0.10';
-}
-# ABSTRACT: Setup directory (existence, mode, permission)
 
 use 5.010;
 use strict;
@@ -14,6 +10,8 @@ use Setup::File;
 require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_dir);
+
+our $VERSION = '0.11'; # VERSION
 
 our %SPEC;
 
@@ -99,6 +97,7 @@ sub setup_dir  {
 }
 
 1;
+# ABSTRACT: Setup directory (existence, mode, permission)
 
 
 =pod
@@ -109,7 +108,7 @@ Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-version 0.10
+version 0.11
 
 =head1 SYNOPSIS
 
@@ -247,7 +246,7 @@ Steven Haryanto <stevenharyanto@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2011 by Steven Haryanto.
+This software is copyright (c) 2012 by Steven Haryanto.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

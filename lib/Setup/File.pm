@@ -1,8 +1,4 @@
 package Setup::File;
-BEGIN {
-  $Setup::File::VERSION = '0.10';
-}
-# ABSTRACT: Setup file (existence, mode, permission, content)
 
 use 5.010;
 use strict;
@@ -20,6 +16,8 @@ use UUID::Random;
 require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_file);
+
+our $VERSION = '0.11'; # VERSION
 
 our %SPEC;
 
@@ -81,8 +79,10 @@ _
             description => <<'_',
 
 If unset, file will not be checked for its content. If set, code will be called
-whenever file content needs to be checked. Code will be passed the file content
-and should return a boolean value indicating whether content is acceptable.
+whenever file content needs to be checked. Code will be passed the reference to
+file content and should return a boolean value indicating whether content is
+acceptable. If it returns a false value, content is deemed unacceptable and
+needs to be fixed.
 
 Alternatively you can use the simpler 'content' argument.
 
@@ -96,8 +96,8 @@ If set, whenever a new file content is needed (e.g. when file is created or file
 content reset), this code will be called to provide it. If unset, empty string
 will be used instead.
 
-Code will be passed the current content (or undef) and should return the new
-content.
+Code will be passed the reference to the current content (or undef) and should
+return the new content.
 
 Alternatively you can use the simpler 'content' argument.
 
@@ -294,7 +294,9 @@ sub _setup_file_or_dir {
                     $cur_content eq $content;
                 unless ($res) {
                     $log->infof("nok: file $path content incorrect");
-                    push @$steps, ["set_content", \($gen_ct->(\$cur_content))];
+                    my $ref_ct = $gen_ct->(\$cur_content);
+                    $ref_ct = \$ref_ct unless ref($ref_ct);
+                    push @$steps, ["set_content", $ref_ct];
                 }
             }
         }
@@ -419,8 +421,12 @@ sub _setup_file_or_dir {
                         if (defined $step->[1]) {
                             $ct = $step->[1];
                         } else {
-                            $ct = $gen_ct ? $gen_ct->(\$cur_content) :
-                                $content;
+                            if ($gen_ct) {
+                                my $ref_ct = $gen_ct->(\$cur_content);
+                                $ct = ref($ref_ct) ? $$ref_ct : $ref_ct;
+                            } else {
+                                $ct = $content;
+                            }
                             $ct //= "";
                         }
                         my $ct_hash = md5_hex($ct);
@@ -500,6 +506,7 @@ sub _setup_file_or_dir {
 }
 
 1;
+# ABSTRACT: Setup file (existence, mode, permission, content)
 
 
 =pod
@@ -510,7 +517,7 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-version 0.10
+version 0.11
 
 =head1 SYNOPSIS
 
@@ -519,7 +526,7 @@ version 0.10
  # simple usage (doesn't save undo data)
  my $res = setup_file path => '/etc/rc.local',
                       should_exist => 1,
-                      gen_content_code => sub { "#!/bin/sh\n" },
+                      gen_content_code => sub { \("#!/bin/sh\n") },
                       owner => 'root', group => 0,
                       mode => '+x';
  die unless $res->[0] == 200 || $res->[0] == 304;
@@ -680,8 +687,10 @@ Note: if you want to setup symlink instead, use Setup::Symlink.
 Code to check content.
 
 If unset, file will not be checked for its content. If set, code will be called
-whenever file content needs to be checked. Code will be passed the file content
-and should return a boolean value indicating whether content is acceptable.
+whenever file content needs to be checked. Code will be passed the reference to
+file content and should return a boolean value indicating whether content is
+acceptable. If it returns a false value, content is deemed unacceptable and
+needs to be fixed.
 
 Alternatively you can use the simpler 'content' argument.
 
@@ -699,8 +708,8 @@ If set, whenever a new file content is needed (e.g. when file is created or file
 content reset), this code will be called to provide it. If unset, empty string
 will be used instead.
 
-Code will be passed the current content (or undef) and should return the new
-content.
+Code will be passed the reference to the current content (or undef) and should
+return the new content.
 
 Alternatively you can use the simpler 'content' argument.
 
@@ -748,7 +757,7 @@ Steven Haryanto <stevenharyanto@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2011 by Steven Haryanto.
+This software is copyright (c) 2012 by Steven Haryanto.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
