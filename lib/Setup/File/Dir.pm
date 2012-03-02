@@ -11,7 +11,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_dir);
 
-our $VERSION = '0.11'; # VERSION
+our $VERSION = '0.12'; # VERSION
 
 our %SPEC;
 
@@ -108,7 +108,7 @@ Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-version 0.11
+version 0.12
 
 =head1 SYNOPSIS
 
@@ -140,7 +140,7 @@ This module is part of the Setup modules family.
 
 This module uses L<Log::Any> logging framework.
 
-This module's functions have L<Sub::Spec> specs.
+This module's functions have L<Rinci> metadata.
 
 =head1 THE SETUP MODULES FAMILY
 
