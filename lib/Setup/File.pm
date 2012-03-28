@@ -17,7 +17,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_file);
 
-our $VERSION = '0.12'; # VERSION
+our $VERSION = '0.13'; # VERSION
 
 our %SPEC;
 
@@ -405,7 +405,17 @@ sub _setup_file_or_dir {
         } elsif ($step->[0] eq 'create') {
             $log->info("Creating $path ...");
             if ((-l $path) || (-e _)) {
-                $err = "Can't create $path: already exists";
+                if ((-f _)) {
+                    my $cur_content = read_file($path, err_mode=>'quiet');
+                    return [500, "Can't read file content: $!"]
+                        unless defined($cur_content);
+                    if ($cur_content ne ${$step->[1]}) {
+                        $err = "Can't create $path: file already exists but ".
+                            "with different content";
+                    }
+                } else {
+                    $err = "Can't create $path: already exists but not a file";
+                }
             } else {
                 {
                     if ($which eq 'dir') {
@@ -419,7 +429,7 @@ sub _setup_file_or_dir {
                     } else {
                         my $ct;
                         if (defined $step->[1]) {
-                            $ct = $step->[1];
+                            $ct = ${$step->[1]};
                         } else {
                             if ($gen_ct) {
                                 my $ref_ct = $gen_ct->(\$cur_content);
@@ -517,7 +527,7 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-version 0.12
+version 0.13
 
 =head1 SYNOPSIS
 
@@ -560,10 +570,12 @@ To "setup" something means to set something into a desired state. For example,
 L<Setup::File> sets up a file with a specified permission mode, ownership, and
 content. If the file doesn't exist it will be created; if a directory exists
 instead, it will be removed and replaced with the file; if the file already
-exists but with incorrect permission/owner/content, it will be corrected. If
-everything is already correct, nothing is done (the function returns 304
-status). Another example is L<Setup::Unix::User>, which will setup a Unix user
-(with the correct specified group membership).
+exists but with incorrect permission/owner/content, it will be corrected.
+Another example is L<Setup::Unix::User>, which will setup a Unix user (with the
+correct specified group membership). If everything is already correct, nothing
+is done (the function returns 304 status). In other words, setup function should
+be idempotent. One should be able to run it multiple times safely to reach the
+desired state.
 
 A simulation (dry run) mode also exists: if you pass L<-dry_run> => 1 argument
 to the function, it will check states and report inconsistencies, but will
@@ -632,12 +644,14 @@ version of your setup module. Existing commands should still be supported as
 long as possible, unless absolutely necessary that it is abandoned. Changes in
 the order of command arguments should also be kept minimal.
 
+=head1 SEE ALSO
+
+Other modules in Setup:: namespace.
+
 =head1 FUNCTIONS
 
-None are exported by default, but they are exportable.
 
-=head2 setup_file(%args) -> [STATUS_CODE, ERR_MSG, RESULT]
-
+=head2 setup_file(%args) -> [status, msg, result, meta]
 
 Setup file (existence, mode, permission, content).
 
@@ -645,38 +659,22 @@ On do, will create file (if it doesn't already exist) and correct
 mode/permission as well as content.
 
 On undo, will restore old mode/permission/content, or delete the file again if
-it was created by this function *and* its content hasn't changed since.
+it was created by this function B<and> its content hasn't changed since.
 
-If given, -undo_hint should contain {tmp_dir=>...} to specify temporary
+If given, -undoB<hint should contain {tmp>dir=>...} to specify temporary
 directory to save replaced file/dir. Temporary directory defaults to ~/.setup,
 it will be created if not exists.
 
-Returns a 3-element arrayref. STATUS_CODE is 200 on success, or an error code
-between 3xx-5xx (just like in HTTP). ERR_MSG is a string containing error
-message, RESULT is the actual result.
-
-This function supports undo operation. See L<Sub::Spec::Clause::features> for
-details on how to perform do/undo/redo.
-
-This function supports dry-run (simulation) mode. To run in dry-run mode, add
-argument C<-dry_run> => 1.
-
-Arguments (C<*> denotes required arguments):
+Arguments ('*' denotes required arguments):
 
 =over 4
 
-=item * B<path>* => I<str>
-
-Path to file.
-
-File path needs to be absolute so it's normalized.
-
-=item * B<allow_symlink>* => I<bool> (default C<1>)
+=item * B<allow_symlink>* => I<bool> (default: 1)
 
 Whether symlink is allowed.
 
-If existing file is a symlink then if allow_symlink is false then it is an
-unacceptable condition (the symlink will be replaced if replace_symlink is
+If existing file is a symlink then if allowB<symlink is false then it is an
+unacceptable condition (the symlink will be replaced if replace>symlink is
 true).
 
 Note: if you want to setup symlink instead, use Setup::Symlink.
@@ -697,7 +695,7 @@ Alternatively you can use the simpler 'content' argument.
 
 Desired file content.
 
-Alternatively you can also use check_content_code & gen_content_code.
+Alternatively you can also use checkB<content>code & genB<content>code.
 
 =item * B<gen_content_code> => I<code>
 
@@ -724,15 +722,21 @@ Expected permission mode.
 
 Expected owner.
 
-=item * B<replace_dir>* => I<bool> (default C<1>)
+=item * B<path>* => I<str>
+
+Path to file.
+
+File path needs to be absolute so it's normalized.
+
+=item * B<replace_dir>* => I<bool> (default: 1)
 
 Replace existing dir if it needs to be replaced.
 
-=item * B<replace_file>* => I<bool> (default C<1>)
+=item * B<replace_file>* => I<bool> (default: 1)
 
 Replace existing file if it needs to be replaced.
 
-=item * B<replace_symlink>* => I<bool> (default C<1>)
+=item * B<replace_symlink>* => I<bool> (default: 1)
 
 Replace existing symlink if it needs to be replaced.
 
@@ -746,9 +750,9 @@ doesn't.
 
 =back
 
-=head1 SEE ALSO
+Return value:
 
-Other modules in Setup:: namespace.
+Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
 
 =head1 AUTHOR
 

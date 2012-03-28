@@ -11,7 +11,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_dir);
 
-our $VERSION = '0.12'; # VERSION
+our $VERSION = '0.13'; # VERSION
 
 our %SPEC;
 
@@ -108,7 +108,7 @@ Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-version 0.12
+version 0.13
 
 =head1 SYNOPSIS
 
@@ -148,12 +148,16 @@ I use the C<Setup::> namespace for the Setup modules family. See L<Setup::File>
 for more details on the goals, characteristics, and implementation of Setup
 modules family.
 
+=head1 SEE ALSO
+
+L<Setup::File>.
+
+Other modules in Setup:: namespace.
+
 =head1 FUNCTIONS
 
-None are exported by default, but they are exportable.
 
-=head2 setup_dir(%args) -> [STATUS_CODE, ERR_MSG, RESULT]
-
+=head2 setup_dir(%args) -> [status, msg, result, meta]
 
 Setup directory (existence, mode, permission).
 
@@ -163,39 +167,23 @@ mode/permission.
 On undo, will restore old mode/permission (and delete directory if it is empty
 and was created by this function).
 
-If given, -undo_hint should contain {tmp_dir=>...} to specify temporary
+If given, -undoB<hint should contain {tmp>dir=>...} to specify temporary
 directory to save replaced file/dir. Temporary directory defaults to ~/.setup,
 it will be created if not exists.
 
-Will *not* create intermediate directories like "mkdir -p". Create intermediate
+Will B<not> create intermediate directories like "mkdir -p". Create intermediate
 directories using several setup_dir() invocation.
 
-Returns a 3-element arrayref. STATUS_CODE is 200 on success, or an error code
-between 3xx-5xx (just like in HTTP). ERR_MSG is a string containing error
-message, RESULT is the actual result.
-
-This function supports undo operation. See L<Sub::Spec::Clause::features> for
-details on how to perform do/undo/redo.
-
-This function supports dry-run (simulation) mode. To run in dry-run mode, add
-argument C<-dry_run> => 1.
-
-Arguments (C<*> denotes required arguments):
+Arguments ('*' denotes required arguments):
 
 =over 4
 
-=item * B<path>* => I<str>
-
-Path to dir.
-
-Dir path needs to be absolute so it's normalized.
-
-=item * B<allow_symlink>* => I<bool> (default C<1>)
+=item * B<allow_symlink>* => I<bool> (default: 1)
 
 Whether symlink is allowed.
 
-If existing dir is a symlink then if allow_symlink is false then it is an
-unacceptable condition (the symlink will be replaced if replace_symlink is
+If existing dir is a symlink then if allowB<symlink is false then it is an
+unacceptable condition (the symlink will be replaced if replace>symlink is
 true).
 
 Note: if you want to setup symlink instead, use Setup::Symlink.
@@ -212,15 +200,21 @@ Expected permission mode.
 
 Expected owner.
 
-=item * B<replace_dir>* => I<bool> (default C<1>)
+=item * B<path>* => I<str>
+
+Path to dir.
+
+Dir path needs to be absolute so it's normalized.
+
+=item * B<replace_dir>* => I<bool> (default: 1)
 
 Replace existing dir if it needs to be replaced.
 
-=item * B<replace_file>* => I<bool> (default C<1>)
+=item * B<replace_file>* => I<bool> (default: 1)
 
 Replace existing file if it needs to be replaced.
 
-=item * B<replace_symlink>* => I<bool> (default C<1>)
+=item * B<replace_symlink>* => I<bool> (default: 1)
 
 Replace existing symlink if it needs to be replaced.
 
@@ -234,11 +228,9 @@ doesn't.
 
 =back
 
-=head1 SEE ALSO
+Return value:
 
-L<Setup::File>.
-
-Other modules in Setup:: namespace.
+Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
 
 =head1 AUTHOR
 

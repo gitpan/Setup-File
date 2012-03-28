@@ -2,7 +2,7 @@ NAME
     Setup::File - Setup file (existence, mode, permission, content)
 
 VERSION
-    version 0.12
+    version 0.13
 
 SYNOPSIS
      use Setup::File 'setup_file';
@@ -44,10 +44,12 @@ THE SETUP MODULES FAMILY
     ownership, and content. If the file doesn't exist it will be created; if
     a directory exists instead, it will be removed and replaced with the
     file; if the file already exists but with incorrect
-    permission/owner/content, it will be corrected. If everything is already
-    correct, nothing is done (the function returns 304 status). Another
-    example is Setup::Unix::User, which will setup a Unix user (with the
-    correct specified group membership).
+    permission/owner/content, it will be corrected. Another example is
+    Setup::Unix::User, which will setup a Unix user (with the correct
+    specified group membership). If everything is already correct, nothing
+    is done (the function returns 304 status). In other words, setup
+    function should be idempotent. One should be able to run it multiple
+    times safely to reach the desired state.
 
     A simulation (dry run) mode also exists: if you pass -dry_run => 1
     argument to the function, it will check states and report
@@ -118,48 +120,33 @@ THE SETUP MODULES FAMILY
     absolutely necessary that it is abandoned. Changes in the order of
     command arguments should also be kept minimal.
 
-FUNCTIONS
-    None are exported by default, but they are exportable.
+SEE ALSO
+    Other modules in Setup:: namespace.
 
-  setup_file(%args) -> [STATUS_CODE, ERR_MSG, RESULT]
+FUNCTIONS
+  setup_file(%args) -> [status, msg, result, meta]
     Setup file (existence, mode, permission, content).
 
     On do, will create file (if it doesn't already exist) and correct
     mode/permission as well as content.
 
     On undo, will restore old mode/permission/content, or delete the file
-    again if it was created by this function *and* its content hasn't
-    changed since.
+    again if it was created by this function and its content hasn't changed
+    since.
 
-    If given, -undo_hint should contain {tmp_dir=>...} to specify temporary
+    If given, -undohint should contain {tmpdir=>...} to specify temporary
     directory to save replaced file/dir. Temporary directory defaults to
     ~/.setup, it will be created if not exists.
 
-    Returns a 3-element arrayref. STATUS_CODE is 200 on success, or an error
-    code between 3xx-5xx (just like in HTTP). ERR_MSG is a string containing
-    error message, RESULT is the actual result.
+    Arguments ('*' denotes required arguments):
 
-    This function supports undo operation. See Sub::Spec::Clause::features
-    for details on how to perform do/undo/redo.
-
-    This function supports dry-run (simulation) mode. To run in dry-run
-    mode, add argument "-dry_run" => 1.
-
-    Arguments ("*" denotes required arguments):
-
-    *   path* => *str*
-
-        Path to file.
-
-        File path needs to be absolute so it's normalized.
-
-    *   allow_symlink* => *bool* (default 1)
+    *   allow_symlink* => *bool* (default: 1)
 
         Whether symlink is allowed.
 
-        If existing file is a symlink then if allow_symlink is false then it
+        If existing file is a symlink then if allowsymlink is false then it
         is an unacceptable condition (the symlink will be replaced if
-        replace_symlink is true).
+        replacesymlink is true).
 
         Note: if you want to setup symlink instead, use Setup::Symlink.
 
@@ -179,8 +166,7 @@ FUNCTIONS
 
         Desired file content.
 
-        Alternatively you can also use check_content_code &
-        gen_content_code.
+        Alternatively you can also use checkcontentcode & gencontentcode.
 
     *   gen_content_code => *code*
 
@@ -207,15 +193,21 @@ FUNCTIONS
 
         Expected owner.
 
-    *   replace_dir* => *bool* (default 1)
+    *   path* => *str*
+
+        Path to file.
+
+        File path needs to be absolute so it's normalized.
+
+    *   replace_dir* => *bool* (default: 1)
 
         Replace existing dir if it needs to be replaced.
 
-    *   replace_file* => *bool* (default 1)
+    *   replace_file* => *bool* (default: 1)
 
         Replace existing file if it needs to be replaced.
 
-    *   replace_symlink* => *bool* (default 1)
+    *   replace_symlink* => *bool* (default: 1)
 
         Replace existing symlink if it needs to be replaced.
 
@@ -227,8 +219,14 @@ FUNCTIONS
         will be deleted if it does. If set to 1, file must exist and will be
         created if it doesn't.
 
-SEE ALSO
-    Other modules in Setup:: namespace.
+    Return value:
+
+    Returns an enveloped result (an array). First element (status) is an
+    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
+    function error). Second element (msg) is a string containing error
+    message, or 'OK' if status is 200. Third element (result) is optional,
+    the actual result. Fourth element (meta) is called result metadata and
+    is optional, a hash that contains extra information.
 
 AUTHOR
     Steven Haryanto <stevenharyanto@gmail.com>
