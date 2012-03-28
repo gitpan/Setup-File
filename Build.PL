@@ -17,7 +17,7 @@ my %module_build_args = (
     "Steven Haryanto <stevenharyanto\@gmail.com>"
   ],
   "dist_name" => "Setup-File",
-  "dist_version" => "0.13",
+  "dist_version" => "0.14",
   "license" => "perl",
   "module_name" => "Setup::File",
   "recommends" => {},
@@ -30,7 +30,9 @@ my %module_build_args = (
     "File::chmod" => 0,
     "Log::Any" => 0,
     "Rinci" => "1.1.0",
+    "Setup" => "1.0.0",
     "Test::More" => "0.96",
+    "Test::Setup" => "1.01",
     "UUID::Random" => 0,
     "perl" => "5.010000"
   },

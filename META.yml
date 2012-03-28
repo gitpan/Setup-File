@@ -21,10 +21,12 @@ requires:
   File::chmod: 0
   Log::Any: 0
   Rinci: 1.1.0
+  Setup: 1.0.0
   Test::More: 0.96
+  Test::Setup: 1.01
   UUID::Random: 0
   perl: 5.010000
 resources:
   homepage: http://search.cpan.org/dist/Setup-File/
   repository: http://github.com/sharyanto/perl-Setup-File
-version: 0.13
+version: 0.14
