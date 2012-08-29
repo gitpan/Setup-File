@@ -1,0 +1,59 @@
+{
+   "abstract" : "Setup file (existence, mode, permission, content)",
+   "author" : [
+      "Steven Haryanto <stevenharyanto@gmail.com>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Dist::Zilla version 4.300006, CPAN::Meta::Converter version 2.113640",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Setup-File",
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Module::Build" : "0.3601"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "Module::Build" : "0.3601"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "File::Slurp" : 0,
+            "File::Trash::Undoable" : "0.06",
+            "File::chmod" : 0,
+            "Lchown" : 0,
+            "Log::Any" : 0,
+            "Rinci" : "v1.1.28",
+            "SHARYANTO::File::Util" : "0.27",
+            "Setup" : "v1.0.2",
+            "perl" : "5.010000"
+         }
+      },
+      "test" : {
+         "requires" : {
+            "File::Path" : "2.07",
+            "File::chdir" : 0,
+            "Test::More" : "0.96",
+            "Test::Perinci::Tx::Manager" : "0.31",
+            "autodie" : 0
+         }
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "homepage" : "http://search.cpan.org/dist/Setup-File/",
+      "repository" : {
+         "url" : "http://github.com/sharyanto/perl-Setup-File"
+      }
+   },
+   "version" : "0.15"
+}
+

@@ -3,6 +3,133 @@
 use 5.010;
 use strict;
 use warnings;
+use FindBin '$Bin';
+use lib $Bin, "$Bin/t";
+
+use File::chdir;
+use File::Path qw(remove_tree);
+use File::Slurp;
+use File::Temp qw(tempdir);
+use Setup::File;
+use Test::More 0.98;
+use Test::Perinci::Tx::Manager qw(test_tx_action);
+
+my $tmpdir = tempdir(CLEANUP=>1);
+$CWD = $tmpdir;
+
+test_tx_action(
+    name          => "should_exist=undef, doesn't exist -> noop",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_dir",
+    args          => {path=>"p"},
+    reset_state   => sub {
+        remove_tree "p";
+    },
+    status        => 304,
+);
+test_tx_action(
+    name          => "should_exist=undef, exists -> noop",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_dir",
+    args          => {path=>"p"},
+    reset_state   => sub {
+        remove_tree "p";
+        mkdir "p";
+    },
+    status        => 304,
+);
+
+test_tx_action(
+    name          => "should_exist=0, doesn't exist -> noop",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_dir",
+    args          => {path=>"p", should_exist=>0},
+    reset_state   => sub {
+        remove_tree "p";
+    },
+    status        => 304,
+);
+test_tx_action(
+    name          => "should_exist=0, exists -> delete",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_dir",
+    args          => {path=>"p", should_exist=>0},
+    reset_state   => sub {
+        remove_tree "p";
+        mkdir "p";
+    },
+    after_do      => sub {
+        ok(!(-d "p"), "dir deleted");
+    },
+    after_undo    => sub {
+        ok((-d "p"), "dir restored");
+    },
+);
+
+test_tx_action(
+    name          => "create",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_dir",
+    args          => {path=>"p", should_exist=>1},
+    reset_state   => sub {
+        remove_tree "p";
+    },
+    after_do      => sub {
+        ok((-d "p"), "dir created");
+    },
+    after_undo    => sub {
+        ok(!(-d "p"), "dir re-deleted");
+    },
+);
+
+for my $existed (0, 1) {
+    test_tx_action(
+        name          => ($existed ? "replace":"create").", mode",
+        tmpdir        => $tmpdir,
+        f             => "Setup::File::setup_dir",
+        args          => {path=>"p", should_exist=>1, mode=>0775},
+        reset_state   => sub {
+            remove_tree "p";
+            do { mkdir "p"; chmod 0755, "p" } if $existed;
+        },
+        after_do      => sub {
+            ok((-d "p"), "dir created");
+            my @st = stat "p";
+            is($st[2] & 07777, 0775, "mode set");
+        },
+        after_undo    => sub {
+            if ($existed) {
+                ok((-d "p"), "dir still exists");
+                my @st = stat "p";
+                is($st[2] & 07777, 0755, "old mode restored");
+            } else {
+                ok(!(-d "p"), "dir re-deleted");
+            }
+        },
+    );
+}
+
+# XXX test owner, group
+# XXX test replace_dir
+# XXX test replace_symlink
+# XXX test allow_symlink
+
+# XXX test change state before undo: content
+
+DONE_TESTING:
+done_testing();
+if (Test::More->builder->is_passing) {
+    #diag "all tests successful, deleting test data dir";
+    $CWD = "/";
+} else {
+    diag "there are failing tests, not deleting test data dir $tmpdir";
+}
+__END__
+#!perl
+
+use 5.010;
+use strict;
+use warnings;
 
 use FindBin '$Bin';
 use lib $Bin, "$Bin/t";
@@ -15,59 +142,6 @@ use vars qw($tmp_dir $undo_data);
 
 setup();
 
-test_setup_dir(
-    name          => "create",
-    path          => "/d",
-    other_args    => {should_exist=>1},
-    check_unsetup => {exists=>0},
-    check_setup   => {is_dir=>1},
-    cleanup       => sub { rmdir "d" },
-);
-test_setup_dir(
-    name          => "replace symlink",
-    path          => "/d",
-    prepare       => sub { symlink "x", "d" },
-    other_args    => {should_exist=>1},
-    check_unsetup => {is_symlink=>1},
-    check_setup   => {is_dir=>1},
-    cleanup       => sub { rmdir "d" },
-);
-test_setup_dir(
-    name          => "allow_symlink=1, but target doesn't exist -> replace",
-    path          => "/d",
-    prepare       => sub { symlink "x", "d" },
-    other_args    => {should_exist=>1, allow_symlink=>1},
-    check_unsetup => {is_symlink=>1},
-    check_setup   => {is_dir=>1},
-    cleanup       => sub { rmdir "d" },
-);
-test_setup_dir(
-    name          => "allow_symlink=1",
-    path          => "/d",
-    prepare       => sub { symlink $Bin, "d" },
-    other_args    => {should_exist=>1, allow_symlink=>1},
-    check_unsetup => {is_symlink=>1},
-    check_setup   => {is_dir=>1},
-    cleanup       => sub { unlink "d" },
-);
-test_setup_dir(
-    name          => "chmod",
-    path          => "/d",
-    prepare       => sub { mkdir "d"; chmod 0751, "d" },
-    other_args    => {should_exist=>1, mode=>0715},
-    check_unsetup => {is_dir=>1, mode=>0751},
-    check_setup   => {is_dir=>1, mode=>0715},
-    cleanup       => sub { rmdir "d" },
-);
-test_setup_dir(
-    name          => "replace file",
-    path          => "/d",
-    prepare       => sub { write_file "d", "orig"; chmod 0664, "d" },
-    other_args    => {should_exist=>1, mode=>0775},
-    check_unsetup => {is_file=>1, mode=>0664},
-    check_setup   => {is_dir=>1, mode=>0775},
-    cleanup       => sub { rmdir "d" },
-);
 goto DONE_TESTING;
 
 # XXX: test symbolic mode

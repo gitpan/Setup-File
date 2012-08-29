@@ -3,6 +3,162 @@
 use 5.010;
 use strict;
 use warnings;
+use FindBin '$Bin';
+use lib $Bin, "$Bin/t";
+
+use File::chdir;
+use File::Path qw(remove_tree);
+use File::Slurp;
+use File::Temp qw(tempdir);
+use Setup::File;
+use Test::More 0.98;
+use Test::Perinci::Tx::Manager qw(test_tx_action);
+
+my $tmpdir = tempdir(CLEANUP=>1);
+$CWD = $tmpdir;
+
+test_tx_action(
+    name          => "should_exist=undef, doesn't exist -> noop",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_file",
+    args          => {path=>"p"},
+    reset_state   => sub {
+        remove_tree "p";
+    },
+    status        => 304,
+);
+test_tx_action(
+    name          => "should_exist=undef, exists -> noop",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_file",
+    args          => {path=>"p"},
+    reset_state   => sub {
+        remove_tree "p";
+        write_file "p", "";
+    },
+    status        => 304,
+);
+
+test_tx_action(
+    name          => "should_exist=0, doesn't exist -> noop",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_file",
+    args          => {path=>"p", should_exist=>0},
+    reset_state   => sub {
+        remove_tree "p";
+    },
+    status        => 304,
+);
+test_tx_action(
+    name          => "should_exist=0, exists -> delete",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_file",
+    args          => {path=>"p", should_exist=>0},
+    reset_state   => sub {
+        remove_tree "p";
+        write_file "p", "";
+    },
+    after_do      => sub {
+        ok(!(-f "p"), "file deleted");
+    },
+    after_undo    => sub {
+        ok((-f "p"), "file restored");
+    },
+);
+
+test_tx_action(
+    name          => "create",
+    tmpdir        => $tmpdir,
+    f             => "Setup::File::setup_file",
+    args          => {path=>"p", should_exist=>1},
+    reset_state   => sub {
+        remove_tree "p";
+    },
+    after_do      => sub {
+        ok((-f "p"), "file created");
+    },
+    after_undo    => sub {
+        ok(!(-f "p"), "file re-deleted");
+    },
+);
+
+for my $existed (0, 1) {
+    test_tx_action(
+        name          => ($existed ? "replace":"create").", content",
+        tmpdir        => $tmpdir,
+        f             => "Setup::File::setup_file",
+        args          => {path=>"p", should_exist=>1, content=>"bar"},
+        reset_state   => sub {
+            remove_tree "p";
+            write_file("p", "foo") if $existed;
+        },
+        after_do      => sub {
+            ok((-f "p"), "file created");
+            is(scalar(read_file "p"), "bar", "content set");
+        },
+        after_undo    => sub {
+            if ($existed) {
+                ok((-f "p"), "file still exists");
+                is(scalar(read_file "p"), "foo", "old content restored");
+            } else {
+                ok(!(-f "p"), "file re-deleted");
+            }
+        },
+    );
+
+    # content_md5, gen_content_func, check_content_func have been tested with
+    # mkfile.
+
+    test_tx_action(
+        name          => ($existed ? "replace":"create").", mode",
+        tmpdir        => $tmpdir,
+        f             => "Setup::File::setup_file",
+        args          => {path=>"p", should_exist=>1, content=>"bar",
+                          mode=>0664},
+        reset_state   => sub {
+            remove_tree "p";
+            do { write_file("p", "foo"); chmod 0644, "p" } if $existed;
+        },
+        after_do      => sub {
+            ok((-f "p"), "file created");
+            is(scalar(read_file "p"), "bar", "content set");
+            my @st = stat "p";
+            is($st[2] & 07777, 0664, "mode set");
+        },
+        after_undo    => sub {
+            if ($existed) {
+                ok((-f "p"), "file still exists");
+                is(scalar(read_file "p"), "foo", "old content restored");
+                my @st = stat "p";
+                is($st[2] & 07777, 0644, "old mode restored");
+            } else {
+                ok(!(-f "p"), "file re-deleted");
+            }
+        },
+    );
+}
+
+# XXX test owner, group
+# XXX test replace_dir
+# XXX test replace_symlink
+# XXX test allow_symlink
+
+# XXX test change state before undo: content
+
+DONE_TESTING:
+done_testing();
+if (Test::More->builder->is_passing) {
+    #diag "all tests successful, deleting test data dir";
+    $CWD = "/";
+} else {
+    diag "there are failing tests, not deleting test data dir $tmpdir";
+}
+__END__
+#!perl
+
+use 5.010;
+use strict;
+use warnings;
 
 use FindBin '$Bin';
 use lib $Bin, "$Bin/t";
@@ -14,135 +170,6 @@ require "testlib.pl";
 use vars qw($tmp_dir $undo_data);
 
 setup();
-
-test_setup_file(
-    name          => "create",
-    path          => "/f",
-    other_args    => {should_exist=>1},
-    check_unsetup => {exists=>0},
-    check_setup   => {exists=>1, is_file=>1},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "create with arg gen_content_sub",
-    path          => "/f",
-    other_args    => {should_exist=>1, gen_content_code=>sub {\"foo"}},
-    check_unsetup => {exists=>0},
-    check_setup   => {exists=>1, is_file=>1, content=>"foo"},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "create w/ arg gen_content_sub #2 (scalar also accepted)",
-    path          => "/f",
-    other_args    => {should_exist=>1, gen_content_code=>sub {"foo"}},
-    check_unsetup => {exists=>0},
-    check_setup   => {exists=>1, is_file=>1, content=>"foo"},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "create with arg content",
-    path          => "/f",
-    other_args    => {should_exist=>1, content=>"foo"},
-    check_unsetup => {exists=>0},
-    check_setup   => {exists=>1, is_file=>1, content=>"foo"},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "create (arg content + gen_content_code -> conflict)",
-    path          => "/f",
-    other_args    => {should_exist=>1, content=>"foo",
-                      gen_content_code=>sub{\"foo"}},
-    dry_do_error  => 400,
-    check_unsetup => {exists=>0},
-);
-test_setup_file(
-    name          => "create (arg content + check_content_code -> conflict)",
-    path          => "/f",
-    other_args    => {should_exist=>1, content=>"foo",
-                      check_content_code=>sub{ ${$_[0]} eq "foo" }},
-    dry_do_error  => 400,
-    check_unsetup => {exists=>0},
-);
-test_setup_file(
-    name          => "create (state changed before undo)",
-    path          => "/f",
-    other_args    => {should_exist=>1, gen_content_code=>sub{\"old"}},
-    check_unsetup => {exists=>0},
-    check_setup   => {exists=>1, is_file=>1, content=>"old"},
-    set_state1    => sub { write_file "f", "new" },
-    check_state1  => {exists=>1, is_file=>1, content=>"new"},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "create (state changed before redo)",
-    path          => "/f",
-    other_args    => {should_exist=>1, gen_content_code=>sub{\"old"}},
-    check_unsetup => {exists=>0},
-    check_setup   => {exists=>1, is_file=>1, content=>"old"},
-    set_state2    => sub { write_file "f", "new" },
-    check_state2  => {exists=>1, is_file=>1, content=>"new"},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "replace symlink",
-    prepare       => sub { symlink "x", "f" },
-    path          => "/f",
-    other_args    => {should_exist=>1, allow_symlink=>0},
-    check_unsetup => {exists=>1, is_symlink=>1, },
-    check_setup   => {exists=>1, is_file=>1, is_symlink=>0},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "allow_symlink=1, but target doesn't exist",
-    prepare       => sub { symlink "x", "f" },
-    path          => "/f",
-    other_args    => {should_exist=>1, allow_symlink=>1},
-    check_unsetup => {exists=>1, is_symlink=>1, },
-    check_setup   => {exists=>1, is_file=>1, is_symlink=>0},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "allow_symlink=1",
-    prepare       => sub { symlink "$Bin/$FindBin::Script", "f" },
-    path          => "/f",
-    other_args    => {should_exist=>1, allow_symlink=>1},
-    check_unsetup => {exists=>1, is_symlink=>1, },
-    check_setup   => {exists=>1, is_symlink=>1, },
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "replace file content (mode not preserved)",
-    prepare       => sub { write_file "f", "old"; chmod 0646, "f" },
-    path          => "/f",
-    other_args    => {should_exist=>1,
-                      check_content_code=>sub { ${$_[0]} eq 'new' },
-                      gen_content_code => sub { \'new' } },
-    check_unsetup => {exists=>1, content=>'old'},
-    check_setup   => {exists=>1, content=>'new'},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "replace file (arg mode)",
-    prepare       => sub { write_file "f", "old"; chmod 0646, "f" },
-    path          => "/f",
-    other_args    => {should_exist=>1, mode=>0664,
-                      check_content_code=>sub { ${$_[0]} eq 'new' },
-                      gen_content_code => sub { \'new' } },
-    check_unsetup => {exists=>1, mode=>0646, content=>'old'},
-    check_setup   => {exists=>1, mode=>0664, content=>'new'},
-    cleanup       => sub { unlink "f" },
-);
-test_setup_file(
-    name          => "replace dir",
-    prepare       => sub { mkdir "f"; chmod 0715, "f" },
-    path          => "/f",
-    other_args    => {should_exist=>1, mode=>0664,
-                      check_content_code=>sub { ${$_[0]} eq 'new' },
-                      gen_content_code => sub { \'new' } },
-    check_unsetup => {exists=>1, is_dir=>1},
-    check_setup   => {exists=>1, is_file=>1, mode=>0664, content=>'new'},
-    cleanup       => sub { rmdir "f" },
-);
 
 goto DONE_TESTING;
 
