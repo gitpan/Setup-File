@@ -2,7 +2,7 @@ NAME
     Setup::File - Setup file (existence, mode, permission, content)
 
 VERSION
-    version 0.15
+    version 0.16
 
 FAQ
   Why not allowing coderef in 'check_content_func' and 'gen_content_func' argument?
@@ -16,12 +16,7 @@ SEE ALSO
 
     Setup::File::Symlink
 
-DESCRIPTION
-    This module has Rinci metadata.
-
 FUNCTIONS
-    None are exported by default, but they are exportable.
-
   chmod(%args) -> [status, msg, result, meta]
     Set file's permission mode.
 
@@ -30,9 +25,6 @@ FUNCTIONS
     Fixable state: "path" exists but mode is not correct.
 
     Unfixable state: "path" doesn't exist.
-
-    This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
 
     Arguments ('*' denotes required arguments):
 
@@ -52,21 +44,6 @@ FUNCTIONS
 
         Path to file/directory.
 
-    Special arguments:
-
-    *   -tx_action => *str*
-
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
-
-    *   -tx_manager => *obj*
-
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
-
     Return value:
 
     Returns an enveloped result (an array). First element (status) is an
@@ -85,16 +62,13 @@ FUNCTIONS
 
     Unfixable state: "path" doesn't exist.
 
-    This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
-
     Arguments ('*' denotes required arguments):
 
     *   follow_symlink => *bool* (default: 0)
 
         Whether to follow symlink.
 
-    *   group => *str*
+    *   group* => *str*
 
         Numeric GID or group.
 
@@ -106,28 +80,13 @@ FUNCTIONS
 
         If set, confirm if current owner is not the same as this.
 
-    *   owner => *str*
+    *   owner* => *str*
 
         Numeric UID or username.
 
     *   path* => *str*
 
         Path to file/directory.
-
-    Special arguments:
-
-    *   -tx_action => *str*
-
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
-
-    *   -tx_manager => *obj*
-
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
 
     Return value:
 
@@ -147,33 +106,15 @@ FUNCTIONS
 
     Unfixable state: "path" exists and is not a directory.
 
-    This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
-
     Arguments ('*' denotes required arguments):
 
-    *   allow_symlink => *str*
+    *   allow_symlink* => *str*
 
         Whether to regard symlink to a directory as directory.
 
     *   path* => *str*
 
         Path to directory.
-
-    Special arguments:
-
-    *   -tx_action => *str*
-
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
-
-    *   -tx_manager => *obj*
-
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
 
     Return value:
 
@@ -194,12 +135,9 @@ FUNCTIONS
 
     Unfixable state: "path" exists and is not a file.
 
-    This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
-
     Arguments ('*' denotes required arguments):
 
-    *   allow_symlink => *str*
+    *   allow_symlink* => *str*
 
         Whether to regard symlink to a file as file.
 
@@ -254,21 +192,6 @@ FUNCTIONS
 
     *   suffix => *str*
 
-    Special arguments:
-
-    *   -tx_action => *str*
-
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
-
-    *   -tx_manager => *obj*
-
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
-
     Return value:
 
     Returns an enveloped result (an array). First element (status) is an
@@ -287,9 +210,6 @@ FUNCTIONS
     directory, if "allow_symlink" option is enabled).
 
     Unfixable state: "path" exists but is not a directory.
-
-    This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
 
     Arguments ('*' denotes required arguments):
 
@@ -311,21 +231,6 @@ FUNCTIONS
 
     *   path* => *str*
 
-    Special arguments:
-
-    *   -tx_action => *str*
-
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
-
-    *   -tx_manager => *obj*
-
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
-
     Return value:
 
     Returns an enveloped result (an array). First element (status) is an
@@ -344,9 +249,6 @@ FUNCTIONS
     "allow_symlink" option is enabled).
 
     Unfixable state: "path" exists but is not a file.
-
-    This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
 
     Arguments ('*' denotes required arguments):
 
@@ -375,21 +277,6 @@ FUNCTIONS
 
         Use this suffix when trashing.
 
-    Special arguments:
-
-    *   -tx_action => *str*
-
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
-
-    *   -tx_manager => *obj*
-
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
-
     Return value:
 
     Returns an enveloped result (an array). First element (status) is an
@@ -411,21 +298,18 @@ FUNCTIONS
     confirmation ("-confirm"). If confirmation is set to true, will delete
     non-empty directory.
 
-    Will *not* create intermediate directories like "mkdir -p". Create
+    Will not create intermediate directories like "mkdir -p". Create
     intermediate directories using several setup_dir() invocation.
-
-    This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
 
     Arguments ('*' denotes required arguments):
 
-    *   allow_symlink => *bool* (default: 1)
+    *   allow_symlink* => *bool* (default: 1)
 
         Whether symlink is allowed.
 
-        If existing dir is a symlink then if allow*symlink is false then it
+        If existing dir is a symlink then if allowsymlink is false then it
         is an unacceptable condition (the symlink will be replaced if
-        replace*symlink is true).
+        replacesymlink is true).
 
         Note: if you want to setup symlink instead, use Setup::Symlink.
 
@@ -445,15 +329,15 @@ FUNCTIONS
 
         Path to file.
 
-    *   replace_dir => *bool* (default: 1)
+    *   replace_dir* => *bool* (default: 1)
 
         Replace existing dir if it needs to be replaced.
 
-    *   replace_file => *bool* (default: 1)
+    *   replace_file* => *bool* (default: 1)
 
         Replace existing file if it needs to be replaced.
 
-    *   replace_symlink => *bool* (default: 1)
+    *   replace_symlink* => *bool* (default: 1)
 
         Replace existing symlink if it needs to be replaced.
 
@@ -464,21 +348,6 @@ FUNCTIONS
         If undef, dir need not exist. If set to 0, dir must not exist and
         will be deleted if it does. If set to 1, dir must exist and will be
         created if it doesn't.
-
-    Special arguments:
-
-    *   -tx_action => *str*
-
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
-
-    *   -tx_manager => *obj*
-
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
 
     Return value:
 
@@ -496,12 +365,9 @@ FUNCTIONS
     mode/permission as well as content.
 
     On undo, will restore old mode/permission/content, or delete the file
-    again if it was created by this function *and* its content hasn't
-    changed since (if content/ownership/mode has changed, function will
-    request confirmation).
-
-    This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    again if it was created by this function and its content hasn't changed
+    since (if content/ownership/mode has changed, function will request
+    confirmation).
 
     Arguments ('*' denotes required arguments):
 
@@ -509,9 +375,9 @@ FUNCTIONS
 
         Whether symlink is allowed.
 
-        If existing file is a symlink to a file then if allow*symlink is
+        If existing file is a symlink to a file then if allowsymlink is
         false then it is an unacceptable condition (the symlink will be
-        replaced if replace*symlink is true).
+        replaced if replacesymlink is true).
 
         Note: if you want to setup symlink instead, use Setup::Symlink.
 
@@ -586,21 +452,6 @@ FUNCTIONS
         If undef, file need not exist. If set to 0, file must not exist and
         will be deleted if it does. If set to 1, file must exist and will be
         created if it doesn't.
-
-    Special arguments:
-
-    *   -tx_action => *str*
-
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
-
-    *   -tx_manager => *obj*
-
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
 
     Return value:
 

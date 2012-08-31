@@ -4,7 +4,7 @@
       "Steven Haryanto <stevenharyanto@gmail.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 4.300006, CPAN::Meta::Converter version 2.113640",
+   "generated_by" : "Dist::Zilla version 4.300015, CPAN::Meta::Converter version 2.120921",
    "license" : [
       "perl_5"
    ],
@@ -26,11 +26,11 @@
       },
       "runtime" : {
          "requires" : {
-            "File::Slurp" : 0,
+            "File::Slurp" : "0",
             "File::Trash::Undoable" : "0.06",
-            "File::chmod" : 0,
-            "Lchown" : 0,
-            "Log::Any" : 0,
+            "File::chmod" : "0",
+            "Lchown" : "0",
+            "Log::Any" : "0",
             "Rinci" : "v1.1.28",
             "SHARYANTO::File::Util" : "0.27",
             "Setup" : "v1.0.2",
@@ -40,10 +40,10 @@
       "test" : {
          "requires" : {
             "File::Path" : "2.07",
-            "File::chdir" : 0,
+            "File::chdir" : "0",
             "Test::More" : "0.96",
             "Test::Perinci::Tx::Manager" : "0.31",
-            "autodie" : 0
+            "autodie" : "0"
          }
       }
    },
@@ -54,6 +54,6 @@
          "url" : "http://github.com/sharyanto/perl-Setup-File"
       }
    },
-   "version" : "0.15"
+   "version" : "0.16"
 }
 

@@ -12,7 +12,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_file);
 
-our $VERSION = '0.15'; # VERSION
+our $VERSION = '0.16'; # VERSION
 
 our %SPEC;
 
@@ -171,7 +171,7 @@ sub mkdir {
             return [304, "Fixed"];
         }
     } elsif ($tx_action eq 'fix_state') {
-        if (CORE::mkdir($path)) {
+        if (CORE::mkdir($path, 0755)) {
             return [200, "Fixed"];
         } else {
             return [500, "Can't symlink: $!"];
@@ -263,7 +263,7 @@ sub chmod {
         if (@undo) {
             return [200, "Fixable", undef, {undo_actions=>\@undo}];
         } else {
-            return [304, "Fixed"];
+            return [304, "Fixed, mode already ".sprintf("%04o", $cur_mode)];
         }
     } elsif ($tx_action eq 'fix_state') {
         if (CORE::chmod($want_mode, $path)) {
@@ -745,6 +745,7 @@ sub mkfile {
                 $ct = $args{content};
             }
             if (File::Slurp::write_file($path, {errmode=>'quiet'}, $ct)) {
+                CORE::chmod(0644, $path);
                 return [200, "OK"];
             } else {
                 return [500, "Can't write file $path: $!"];
@@ -1142,7 +1143,7 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-version 0.15
+version 0.16
 
 =head1 FAQ
 
@@ -1159,15 +1160,8 @@ L<Setup::File::Dir>
 
 L<Setup::File::Symlink>
 
-=head1 DESCRIPTION
-
-
-This module has L<Rinci> metadata.
-
 =head1 FUNCTIONS
 
-
-None are exported by default, but they are exportable.
 
 =head2 chmod(%args) -> [status, msg, result, meta]
 
@@ -1178,9 +1172,6 @@ Fixed state: C<path> exists and mode is already correct.
 Fixable state: C<path> exists but mode is not correct.
 
 Unfixable state: C<path> doesn't exist.
-
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
-
 
 Arguments ('*' denotes required arguments):
 
@@ -1204,20 +1195,6 @@ Path to file/directory.
 
 =back
 
-Special arguments:
-
-=over 4
-
-=item * B<-tx_action> => I<str>
-
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=item * B<-tx_manager> => I<obj>
-
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=back
-
 Return value:
 
 Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
@@ -1232,9 +1209,6 @@ Fixable state: C<path> exists but ownership is not correct.
 
 Unfixable state: C<path> doesn't exist.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
-
-
 Arguments ('*' denotes required arguments):
 
 =over 4
@@ -1243,7 +1217,7 @@ Arguments ('*' denotes required arguments):
 
 Whether to follow symlink.
 
-=item * B<group> => I<str>
+=item * B<group>* => I<str>
 
 Numeric GID or group.
 
@@ -1255,27 +1229,13 @@ If set, confirm if current group is not the same as this.
 
 If set, confirm if current owner is not the same as this.
 
-=item * B<owner> => I<str>
+=item * B<owner>* => I<str>
 
 Numeric UID or username.
 
 =item * B<path>* => I<str>
 
 Path to file/directory.
-
-=back
-
-Special arguments:
-
-=over 4
-
-=item * B<-tx_action> => I<str>
-
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=item * B<-tx_manager> => I<obj>
-
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
 
 =back
 
@@ -1293,34 +1253,17 @@ Fixable state: C<path> doesn't exist.
 
 Unfixable state: C<path> exists and is not a directory.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
-
-
 Arguments ('*' denotes required arguments):
 
 =over 4
 
-=item * B<allow_symlink> => I<str>
+=item * B<allow_symlink>* => I<str>
 
 Whether to regard symlink to a directory as directory.
 
 =item * B<path>* => I<str>
 
 Path to directory.
-
-=back
-
-Special arguments:
-
-=over 4
-
-=item * B<-tx_action> => I<str>
-
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=item * B<-tx_manager> => I<obj>
-
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
 
 =back
 
@@ -1339,14 +1282,11 @@ incorrect. Or C<orig_path> specified and exists.
 
 Unfixable state: C<path> exists and is not a file.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
-
-
 Arguments ('*' denotes required arguments):
 
 =over 4
 
-=item * B<allow_symlink> => I<str>
+=item * B<allow_symlink>* => I<str>
 
 Whether to regard symlink to a file as file.
 
@@ -1400,20 +1340,6 @@ Path to file.
 
 =back
 
-Special arguments:
-
-=over 4
-
-=item * B<-tx_action> => I<str>
-
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=item * B<-tx_manager> => I<obj>
-
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=back
-
 Return value:
 
 Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
@@ -1428,9 +1354,6 @@ Fixable state: C<path> exists and is a directory (or, a symlink to a directory,
 if C<allow_symlink> option is enabled).
 
 Unfixable state: C<path> exists but is not a directory.
-
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
-
 
 Arguments ('*' denotes required arguments):
 
@@ -1455,20 +1378,6 @@ Caller can confirm by passing special argument C<-confirm>.
 
 =back
 
-Special arguments:
-
-=over 4
-
-=item * B<-tx_action> => I<str>
-
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=item * B<-tx_manager> => I<obj>
-
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=back
-
 Return value:
 
 Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
@@ -1483,9 +1392,6 @@ Fixable state: C<path> exists and is a file (or, a symlink to a file, if
 C<allow_symlink> option is enabled).
 
 Unfixable state: C<path> exists but is not a file.
-
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
-
 
 Arguments ('*' denotes required arguments):
 
@@ -1517,20 +1423,6 @@ Use this suffix when trashing.
 
 =back
 
-Special arguments:
-
-=over 4
-
-=item * B<-tx_action> => I<str>
-
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=item * B<-tx_manager> => I<obj>
-
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=back
-
 Return value:
 
 Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
@@ -1547,21 +1439,18 @@ and was created by this function). If directory was created by this function but
 is not empty, will return status 331 to ask for confirmation (C<-confirm>). If
 confirmation is set to true, will delete non-empty directory.
 
-Will I<not> create intermediate directories like "mkdir -p". Create intermediate
+Will B<not> create intermediate directories like "mkdir -p". Create intermediate
 directories using several setup_dir() invocation.
-
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
-
 
 Arguments ('*' denotes required arguments):
 
 =over 4
 
-=item * B<allow_symlink> => I<bool> (default: 1)
+=item * B<allow_symlink>* => I<bool> (default: 1)
 
 Whether symlink is allowed.
 
-If existing dir is a symlink then if allowI<symlink is false then it is an
+If existing dir is a symlink then if allowB<symlink is false then it is an
 unacceptable condition (the symlink will be replaced if replace>symlink is
 true).
 
@@ -1583,15 +1472,15 @@ Expected owner.
 
 Path to file.
 
-=item * B<replace_dir> => I<bool> (default: 1)
+=item * B<replace_dir>* => I<bool> (default: 1)
 
 Replace existing dir if it needs to be replaced.
 
-=item * B<replace_file> => I<bool> (default: 1)
+=item * B<replace_file>* => I<bool> (default: 1)
 
 Replace existing file if it needs to be replaced.
 
-=item * B<replace_symlink> => I<bool> (default: 1)
+=item * B<replace_symlink>* => I<bool> (default: 1)
 
 Replace existing symlink if it needs to be replaced.
 
@@ -1602,20 +1491,6 @@ Whether dir should exist.
 If undef, dir need not exist. If set to 0, dir must not exist and will be
 deleted if it does. If set to 1, dir must exist and will be created if it
 doesn't.
-
-=back
-
-Special arguments:
-
-=over 4
-
-=item * B<-tx_action> => I<str>
-
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=item * B<-tx_manager> => I<obj>
-
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
 
 =back
 
@@ -1631,11 +1506,8 @@ On do, will create file (if it doesn't already exist) and correct
 mode/permission as well as content.
 
 On undo, will restore old mode/permission/content, or delete the file again if
-it was created by this function I<and> its content hasn't changed since (if
+it was created by this function B<and> its content hasn't changed since (if
 content/ownership/mode has changed, function will request confirmation).
-
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
-
 
 Arguments ('*' denotes required arguments):
 
@@ -1645,7 +1517,7 @@ Arguments ('*' denotes required arguments):
 
 Whether symlink is allowed.
 
-If existing file is a symlink to a file then if allowI<symlink is false then it
+If existing file is a symlink to a file then if allowB<symlink is false then it
 is an unacceptable condition (the symlink will be replaced if replace>symlink is
 true).
 
@@ -1721,20 +1593,6 @@ Whether file should exist.
 If undef, file need not exist. If set to 0, file must not exist and will be
 deleted if it does. If set to 1, file must exist and will be created if it
 doesn't.
-
-=back
-
-Special arguments:
-
-=over 4
-
-=item * B<-tx_action> => I<str>
-
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
-
-=item * B<-tx_manager> => I<obj>
-
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
 
 =back
 
