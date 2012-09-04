@@ -12,7 +12,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_file);
 
-our $VERSION = '0.16'; # VERSION
+our $VERSION = '0.17'; # VERSION
 
 our %SPEC;
 
@@ -68,6 +68,7 @@ sub rmdir {
     my $tx_action = $args{-tx_action} // '';
     my $taid      = $args{-tx_action_id}
         or return [412, "Please specify -tx_action_id"];
+    my $dry_run   = $args{-dry_run};
     my $path      = $args{path};
     defined($path) or return [400, "Please specify path"];
     my $allow_sym = $args{allow_symlink} // 0;
@@ -96,16 +97,17 @@ sub rmdir {
                     }
                 }
             }
-            $log->info("nok: Dir $path should be removed");
+            $log->info("(DRY) Removing dir $path ...") if $dry_run;
             unshift @undo, (
                 ['File::Trash::Undoable::untrash' =>
                      {path=>$path, suffix=>substr($taid,0,8)}],
             );
         }
         if (@undo) {
-            return [200, "Fixable", undef, {undo_actions=>\@undo}];
+            return [200, "Dir $path needs to be removed", undef,
+                    {undo_actions=>\@undo}];
         } else {
-            return [304, "Fixed"];
+            return [304, "Dir $path already does not exist"];
         }
     } elsif ($tx_action eq 'fix_state') {
         return File::Trash::Undoable::trash(
@@ -148,6 +150,7 @@ sub mkdir {
 
     # TMP, schema
     my $tx_action = $args{-tx_action} // '';
+    my $dry_run   = $args{-dry_run};
     my $path      = $args{path};
     defined($path) or return [400, "Please specify path"];
     my $allow_sym = $args{allow_symlink} // 0;
@@ -159,18 +162,20 @@ sub mkdir {
 
     if ($tx_action eq 'check_state') {
         my @undo;
-        return [412, "Not a dir"] if $exists &&
+        return [412, "$path is not a dir"] if $exists &&
             !($is_dir || $allow_sym && $is_sym_to_dir);
         if (!$exists) {
-            $log->info("nok: Dir $path should be created");
             unshift @undo, [rmdir => {path => $path}];
         }
         if (@undo) {
-            return [200, "Fixable", undef, {undo_actions=>\@undo}];
+            $log->info("(DRY) Creating dir $path ...") if $dry_run;
+            return [200, "Dir $path needs to be created", undef,
+                    {undo_actions=>\@undo}];
         } else {
-            return [304, "Fixed"];
+            return [304, "Dir $path already exists"];
         }
     } elsif ($tx_action eq 'fix_state') {
+        $log->info("Creating dir $path ...");
         if (CORE::mkdir($path, 0755)) {
             return [200, "Fixed"];
         } else {
@@ -228,6 +233,7 @@ sub chmod {
 
     # TMP, schema
     my $tx_action  = $args{-tx_action} // '';
+    my $dry_run    = $args{-dry_run};
     my $path       = $args{path};
     defined($path) or return [400, "Please specify path"];
     my $follow_sym = $args{follow_symlink} // 0;
@@ -252,24 +258,30 @@ sub chmod {
     #$log->tracef("path=%s, cur_mode=%04o, want_mode=%04o", $path, $cur_mode, $want_mode);
     if ($tx_action eq 'check_state') {
         my @undo;
-        return [412, "Doesn't exist"] if !$exists;
+        return [412, "Path $path doesn't exist"] if !$exists;
         if ($cur_mode != $want_mode) {
-            $log->infof("nok: Should chmod $path to %04o", $want_mode);
+            $log->infof("(DRY) chmod %s to %04o ...", $path, $want_mode)
+                if $dry_run;
             unshift @undo, [chmod => {
                 path => $path, mode=>$cur_mode, orig_mode=>$want_mode,
                 follow_symlink => $follow_sym,
             }];
         }
         if (@undo) {
-            return [200, "Fixable", undef, {undo_actions=>\@undo}];
+            $log->infof("(DRY) Chmod %s to %04o ...", $path, $want_mode)
+                if $dry_run;
+            return [200, "Path $path needs to be chmod'ed to ".
+                        sprintf("%04o", $cur_mode), undef,
+                    {undo_actions=>\@undo}];
         } else {
             return [304, "Fixed, mode already ".sprintf("%04o", $cur_mode)];
         }
     } elsif ($tx_action eq 'fix_state') {
+        $log->infof("Chmod %s to %04o ...", $path, $want_mode);
         if (CORE::chmod($want_mode, $path)) {
             return [200, "Fixed"];
         } else {
-            return [500, "Can't chmod $path: $!"];
+            return [500, "Can't chmod: $!"];
         }
     }
     [400, "Invalid -tx_action"];
@@ -329,6 +341,7 @@ sub chown {
 
     # TMP, schema
     my $tx_action  = $args{-tx_action} // '';
+    my $dry_run    = $args{-dry_run};
     my $path       = $args{path};
     defined($path) or return [400, "Please specify path"];
     my $follow_sym = $args{follow_symlink} // 0;
@@ -417,8 +430,8 @@ sub chown {
         return [412, "Doesn't exist"] if !$exists;
         if (defined($want_uid) && $cur_uid != $want_uid ||
                 defined($want_gid) && $cur_gid != $want_gid) {
-            $log->infof("nok: Should chown $path to (%s, %s)",
-                        $want_owner, $want_group);
+            $log->infof("(DRY) Chown %s to (%s, %s)",
+                        $path, $want_owner, $want_group) if $dry_run;
             unshift @undo, [chown => {
                 path  => $path,
                 owner => (defined($want_uid) &&
@@ -430,12 +443,16 @@ sub chown {
             }];
         }
         if (@undo) {
-            return [200, "Fixable", undef, {undo_actions=>\@undo}];
+            return [200, "Path $path needs to be chown'ed to ".
+                        "(".($want_owner // "-").", ".($want_group // "-").")",
+                    undef, {undo_actions=>\@undo}];
         } else {
-            return [304, "Fixed"];
+            return [304, "Path $path already has correct owner and group"];
         }
     } elsif ($tx_action eq 'fix_state') {
         my $res;
+        $log->infof("%schown %path to (%s, %s) ...", $follow_sym ? "" : "l",
+                    $path, $want_uid // -1, $want_gid // -1);
         if ($follow_sym) {
             $res = CORE::chown   ($want_uid // -1, $want_gid // -1, $path);
         } else {
@@ -444,7 +461,7 @@ sub chown {
         if ($res) {
             return [200, "Fixed"];
         } else {
-            return [500, "Can't chown $path: $!"];
+            return [500, "Can't chown: $!"];
         }
     }
     [400, "Invalid -tx_action"];
@@ -513,6 +530,7 @@ sub rmfile {
     my $tx_action = $args{-tx_action} // '';
     my $taid      = $args{-tx_action_id}
         or return [400, "Please specify -tx_action_id"];
+    my $dry_run   = $args{-dry_run};
     my $path      = $args{path};
     defined($path) or return [400, "Please specify path"];
     my $allow_sym = $args{allow_symlink} // 0;
@@ -527,7 +545,7 @@ sub rmfile {
 
     #$log->tracef("path=%s, exists=%s, is_file=%s, allow_sym=%s, is_sym_to_file=%s", $path, $exists, $is_file, $allow_sym, $is_sym_to_file);
     if ($tx_action eq 'check_state') {
-        return [412, "Not a file"] if $exists &&
+        return [412, "Path $path is not a file"] if $exists &&
             !($is_file || $allow_sym && $is_sym_to_file);
         if ($exists) {
             if (!$args{-confirm} && (defined($args{orig_content}) ||
@@ -551,16 +569,17 @@ sub rmfile {
                         if $ctx->hexdigest ne $args{orig_content_md5};
                 }
             }
-            $log->info("nok: File $path should be removed");
+            $log->info("(DRY) Removing file $path ...") if $dry_run;
             unshift @undo, (
                 ['File::Trash::Undoable::untrash' =>
                      {path=>$path, suffix=>$suffix}],
             );
         }
         if (@undo) {
-            return [200, "Fixable", undef, {undo_actions=>\@undo}];
+            return [200, "File $path needs to be removed",
+                    undef, {undo_actions=>\@undo}];
         } else {
-            return [304, "Fixed"];
+            return [304, "File $path already does not exist"];
         }
     } elsif ($tx_action eq 'fix_state') {
         return File::Trash::Undoable::trash(
@@ -666,6 +685,7 @@ sub mkfile {
     my $tx_action = $args{-tx_action} // '';
     my $taid      = $args{-tx_action_id}
         or return [400, "Please specify -tx_action_id"];
+    my $dry_run   = $args{-dry_run};
     my $path      = $args{path};
     defined($path) or return [400, "Please specify path"];
     my $allow_sym = $args{allow_symlink} // 0;
@@ -676,13 +696,15 @@ sub mkfile {
     my $exists    = $is_sym || (-e _);
     my $is_file   = (-f _);
     my $is_sym_to_file = $is_sym && (-f $path);
-    return [412, "Not a file"] if $exists &&
+    return [412, "Path $path is not a file"] if $exists &&
         !($is_file || $allow_sym && $is_sym_to_file);
+    my $msg;
 
     my $fix_content;
     if ($exists) {
         my $ct = File::Slurp::read_file($path, err_mode=>'quiet');
-        return [500, "Can't read file content: $!"] unless defined($ct);
+        return [500, "Can't read content of file $path: $!"]
+            unless defined($ct);
         my $res;
         if (defined $args{check_content_func}) {
             no strict 'refs';
@@ -699,7 +721,8 @@ sub mkfile {
         my @undo;
         if ($exists) {
             if ($fix_content) {
-                $log->info("nok: File $path content incorrect");
+                $log->info("(DRY) Replacing file $path ...") if $dry_run;
+                $msg = "File $path needs to be replaced";
                 unshift @undo, (
                     ["File::Trash::Undoable::untrash",
                      {path=>$path, suffix=>$suffix}],
@@ -708,7 +731,7 @@ sub mkfile {
                 );
             }
         } else {
-            $log->info("nok: File $path should be created");
+            $log->info("(DRY) File $path should be created");
             my $ct = "";
             if (defined $args{gen_content_func}) {
                 no strict 'refs';
@@ -717,14 +740,16 @@ sub mkfile {
                 $ct = $args{content};
             }
             my $md5 = Digest::MD5::md5_hex($ct);
+            $log->info("(DRY) Creating file $path ...") if $dry_run;
+            $msg = "File $path needs to be created";
             unshift @undo, [rmfile =>
                                 {path => $path, suffix=>$suffix."n",
                                  orig_content_md5=>$md5}];
         }
         if (@undo) {
-            return [200, "Fixable", undef, {undo_actions=>\@undo}];
+            return [200, $msg, undef, {undo_actions=>\@undo}];
         } else {
-            return [304, "Fixed"];
+            return [304, "File $path already exists"];
         }
 
     } elsif ($tx_action eq 'fix_state') {
@@ -744,11 +769,12 @@ sub mkfile {
             } elsif (defined $args{content}) {
                 $ct = $args{content};
             }
+            $log->info("Creating file $path ...");
             if (File::Slurp::write_file($path, {errmode=>'quiet'}, $ct)) {
                 CORE::chmod(0644, $path);
                 return [200, "OK"];
             } else {
-                return [500, "Can't write file $path: $!"];
+                return [500, "Can't write_file(): $!"];
             }
         } else {
             # shouldn't reach here
@@ -767,6 +793,7 @@ sub _setup_file_or_dir {
     # TMP, SCHEMA
     my $taid         = $args{-tx_action_id}
         or return [400, "Please specify -tx_action_id"];
+    my $dry_run      = $args{-dry_run};
     my $path         = $args{path};
     defined($path) or return [400, "Please specify path"];
     my $should_exist = $args{should_exist};
@@ -829,7 +856,7 @@ sub _setup_file_or_dir {
     {
         if (defined($should_exist) && !$should_exist) {
             if ($exists) {
-                $log->info("nok: $Which $path should not exist but does");
+                $log->info("(DRY) Removing $which $path ...") if $dry_run;
                 push    @do  , $act_trash;
                 unshift @undo, $act_untrash;
             }
@@ -839,24 +866,27 @@ sub _setup_file_or_dir {
         last if !defined($should_exist) && !$exists;
 
         if (!$allow_sym && $is_sym) {
-            $log->info("nok: $Which $path should not be symlink but is");
             if (!$replace_sym) {
                 return [412, "must replace symlink but instructed not to"];
             }
+            $log->info("(DRY) Replacing symlink $path with $which ...")
+                if $dry_run;
             push    @do  , $act_trash;
             unshift @undo, $act_untrash;
         } elsif ($is_dir && $which eq 'file') {
-            $log->info("nok: $path is expected to be file but is dir");
             if (!$replace_dir) {
                 return [412, "must replace dir but instructed not to"];
             }
+            $log->info("(DRY) Replacing file $path with $which ...")
+                if $dry_run;
             push    @do  , $act_trash;
             unshift @undo, $act_untrash;
         } elsif (!$is_dir && $which eq 'dir') {
-            $log->info("nok: $path is expected to be dir but is file");
             if (!$replace_file) {
                 return [412, "must replace file but instructed not to"];
             }
+            $log->info("(DRY) Replacing dir $path with $which ...")
+                if $dry_run;
             push    @do  , $act_trash;
             unshift @undo, $act_untrash;
         }
@@ -916,9 +946,9 @@ sub _setup_file_or_dir {
     } # block
 
     if (@do) {
-        [200, "Fixable", undef, {do_actions=>\@do, undo_actions=>\@undo}];
+        [200, "", undef, {do_actions=>\@do, undo_actions=>\@undo}];
     } else {
-        [304, "Fixed"];
+        [304, "Already fixed"];
     }
 }
 
@@ -1143,7 +1173,7 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-version 0.16
+version 0.17
 
 =head1 FAQ
 
@@ -1160,8 +1190,15 @@ L<Setup::File::Dir>
 
 L<Setup::File::Symlink>
 
+=head1 DESCRIPTION
+
+
+This module has L<Rinci> metadata.
+
 =head1 FUNCTIONS
 
+
+None are exported by default, but they are exportable.
 
 =head2 chmod(%args) -> [status, msg, result, meta]
 
@@ -1172,6 +1209,9 @@ Fixed state: C<path> exists and mode is already correct.
 Fixable state: C<path> exists but mode is not correct.
 
 Unfixable state: C<path> doesn't exist.
+
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+
 
 Arguments ('*' denotes required arguments):
 
@@ -1195,6 +1235,20 @@ Path to file/directory.
 
 =back
 
+Special arguments:
+
+=over 4
+
+=item * B<-tx_action> => I<str>
+
+You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=item * B<-tx_manager> => I<obj>
+
+Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=back
+
 Return value:
 
 Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
@@ -1209,6 +1263,9 @@ Fixable state: C<path> exists but ownership is not correct.
 
 Unfixable state: C<path> doesn't exist.
 
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+
+
 Arguments ('*' denotes required arguments):
 
 =over 4
@@ -1217,7 +1274,7 @@ Arguments ('*' denotes required arguments):
 
 Whether to follow symlink.
 
-=item * B<group>* => I<str>
+=item * B<group> => I<str>
 
 Numeric GID or group.
 
@@ -1229,13 +1286,27 @@ If set, confirm if current group is not the same as this.
 
 If set, confirm if current owner is not the same as this.
 
-=item * B<owner>* => I<str>
+=item * B<owner> => I<str>
 
 Numeric UID or username.
 
 =item * B<path>* => I<str>
 
 Path to file/directory.
+
+=back
+
+Special arguments:
+
+=over 4
+
+=item * B<-tx_action> => I<str>
+
+You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=item * B<-tx_manager> => I<obj>
+
+Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
 
 =back
 
@@ -1253,17 +1324,34 @@ Fixable state: C<path> doesn't exist.
 
 Unfixable state: C<path> exists and is not a directory.
 
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+
+
 Arguments ('*' denotes required arguments):
 
 =over 4
 
-=item * B<allow_symlink>* => I<str>
+=item * B<allow_symlink> => I<str>
 
 Whether to regard symlink to a directory as directory.
 
 =item * B<path>* => I<str>
 
 Path to directory.
+
+=back
+
+Special arguments:
+
+=over 4
+
+=item * B<-tx_action> => I<str>
+
+You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=item * B<-tx_manager> => I<obj>
+
+Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
 
 =back
 
@@ -1282,11 +1370,14 @@ incorrect. Or C<orig_path> specified and exists.
 
 Unfixable state: C<path> exists and is not a file.
 
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+
+
 Arguments ('*' denotes required arguments):
 
 =over 4
 
-=item * B<allow_symlink>* => I<str>
+=item * B<allow_symlink> => I<str>
 
 Whether to regard symlink to a file as file.
 
@@ -1340,6 +1431,20 @@ Path to file.
 
 =back
 
+Special arguments:
+
+=over 4
+
+=item * B<-tx_action> => I<str>
+
+You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=item * B<-tx_manager> => I<obj>
+
+Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=back
+
 Return value:
 
 Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
@@ -1354,6 +1459,9 @@ Fixable state: C<path> exists and is a directory (or, a symlink to a directory,
 if C<allow_symlink> option is enabled).
 
 Unfixable state: C<path> exists but is not a directory.
+
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+
 
 Arguments ('*' denotes required arguments):
 
@@ -1378,6 +1486,20 @@ Caller can confirm by passing special argument C<-confirm>.
 
 =back
 
+Special arguments:
+
+=over 4
+
+=item * B<-tx_action> => I<str>
+
+You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=item * B<-tx_manager> => I<obj>
+
+Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=back
+
 Return value:
 
 Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
@@ -1392,6 +1514,9 @@ Fixable state: C<path> exists and is a file (or, a symlink to a file, if
 C<allow_symlink> option is enabled).
 
 Unfixable state: C<path> exists but is not a file.
+
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+
 
 Arguments ('*' denotes required arguments):
 
@@ -1423,6 +1548,20 @@ Use this suffix when trashing.
 
 =back
 
+Special arguments:
+
+=over 4
+
+=item * B<-tx_action> => I<str>
+
+You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=item * B<-tx_manager> => I<obj>
+
+Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=back
+
 Return value:
 
 Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
@@ -1439,18 +1578,21 @@ and was created by this function). If directory was created by this function but
 is not empty, will return status 331 to ask for confirmation (C<-confirm>). If
 confirmation is set to true, will delete non-empty directory.
 
-Will B<not> create intermediate directories like "mkdir -p". Create intermediate
+Will I<not> create intermediate directories like "mkdir -p". Create intermediate
 directories using several setup_dir() invocation.
+
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+
 
 Arguments ('*' denotes required arguments):
 
 =over 4
 
-=item * B<allow_symlink>* => I<bool> (default: 1)
+=item * B<allow_symlink> => I<bool> (default: 1)
 
 Whether symlink is allowed.
 
-If existing dir is a symlink then if allowB<symlink is false then it is an
+If existing dir is a symlink then if allowI<symlink is false then it is an
 unacceptable condition (the symlink will be replaced if replace>symlink is
 true).
 
@@ -1472,15 +1614,15 @@ Expected owner.
 
 Path to file.
 
-=item * B<replace_dir>* => I<bool> (default: 1)
+=item * B<replace_dir> => I<bool> (default: 1)
 
 Replace existing dir if it needs to be replaced.
 
-=item * B<replace_file>* => I<bool> (default: 1)
+=item * B<replace_file> => I<bool> (default: 1)
 
 Replace existing file if it needs to be replaced.
 
-=item * B<replace_symlink>* => I<bool> (default: 1)
+=item * B<replace_symlink> => I<bool> (default: 1)
 
 Replace existing symlink if it needs to be replaced.
 
@@ -1491,6 +1633,20 @@ Whether dir should exist.
 If undef, dir need not exist. If set to 0, dir must not exist and will be
 deleted if it does. If set to 1, dir must exist and will be created if it
 doesn't.
+
+=back
+
+Special arguments:
+
+=over 4
+
+=item * B<-tx_action> => I<str>
+
+You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=item * B<-tx_manager> => I<obj>
+
+Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
 
 =back
 
@@ -1506,8 +1662,11 @@ On do, will create file (if it doesn't already exist) and correct
 mode/permission as well as content.
 
 On undo, will restore old mode/permission/content, or delete the file again if
-it was created by this function B<and> its content hasn't changed since (if
+it was created by this function I<and> its content hasn't changed since (if
 content/ownership/mode has changed, function will request confirmation).
+
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+
 
 Arguments ('*' denotes required arguments):
 
@@ -1517,7 +1676,7 @@ Arguments ('*' denotes required arguments):
 
 Whether symlink is allowed.
 
-If existing file is a symlink to a file then if allowB<symlink is false then it
+If existing file is a symlink to a file then if allowI<symlink is false then it
 is an unacceptable condition (the symlink will be replaced if replace>symlink is
 true).
 
@@ -1593,6 +1752,20 @@ Whether file should exist.
 If undef, file need not exist. If set to 0, file must not exist and will be
 deleted if it does. If set to 1, file must exist and will be created if it
 doesn't.
+
+=back
+
+Special arguments:
+
+=over 4
+
+=item * B<-tx_action> => I<str>
+
+You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+
+=item * B<-tx_manager> => I<obj>
+
+Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
 
 =back
 

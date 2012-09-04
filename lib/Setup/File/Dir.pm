@@ -6,7 +6,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_dir);
 
-our $VERSION = '0.16'; # VERSION
+our $VERSION = '0.17'; # VERSION
 
 # now moved to Setup::File
 
@@ -27,7 +27,7 @@ Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-version 0.16
+version 0.17
 
 =head1
 
@@ -39,7 +39,15 @@ L<Setup>
 
 L<Setup::File>
 
+=head1 DESCRIPTION
+
+
+This module has L<Rinci> metadata.
+
 =head1 FUNCTIONS
+
+
+None are exported by default, but they are exportable.
 
 =head1 AUTHOR
 
