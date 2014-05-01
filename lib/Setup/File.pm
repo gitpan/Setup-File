@@ -1,6 +1,6 @@
 package Setup::File;
 
-use 5.010;
+use 5.010001;
 use strict;
 use warnings;
 use Log::Any '$log';
@@ -12,11 +12,10 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_file);
 
-our $VERSION = '0.17'; # VERSION
+our $VERSION = '0.18'; # VERSION
+our $DATE = '2014-05-02'; # DATE
 
 our %SPEC;
-
-my $res;
 
 $SPEC{rmdir} = {
     v           => 1.1,
@@ -139,6 +138,10 @@ _
             summary => 'Whether to regard symlink to a directory as directory',
             schema => 'str*',
         },
+        mode => {
+            summary => 'Set mode for the newly created directory',
+            schema => 'str*',
+        },
     },
     features => {
         tx => {v=>2},
@@ -154,6 +157,9 @@ sub mkdir {
     my $path      = $args{path};
     defined($path) or return [400, "Please specify path"];
     my $allow_sym = $args{allow_symlink} // 0;
+    my $mode      = $args{mode} // 0755; # XXX use umask
+    return [412, "Invalid mode '$mode', please use numeric only"]
+        if $mode =~ /\D/;
 
     my $is_sym    = (-l $path);
     my $exists    = $is_sym || (-e _);
@@ -176,10 +182,10 @@ sub mkdir {
         }
     } elsif ($tx_action eq 'fix_state') {
         $log->info("Creating dir $path ...");
-        if (CORE::mkdir($path, 0755)) {
+        if (CORE::mkdir($path, $mode)) {
             return [200, "Fixed"];
         } else {
-            return [500, "Can't symlink: $!"];
+            return [500, "Can't mkdir $path: $!"];
         }
     }
     [400, "Invalid -tx_action"];
@@ -251,7 +257,8 @@ sub chmod {
         return [331, "File $path has changed permission mode, confirm chmod?"];
     }
     if ($want_mode =~ /\D/) {
-        return [412, "Symbolic mode requires path to exist"] unless $exists;
+        return [412, "Symbolic mode ($want_mode) requires path $path to exist"]
+            unless $exists;
         $want_mode = File::chmod::getchmod($want_mode, $path);
     }
 
@@ -271,7 +278,7 @@ sub chmod {
             $log->infof("(DRY) Chmod %s to %04o ...", $path, $want_mode)
                 if $dry_run;
             return [200, "Path $path needs to be chmod'ed to ".
-                        sprintf("%04o", $cur_mode), undef,
+                        sprintf("%04o", $want_mode), undef,
                     {undo_actions=>\@undo}];
         } else {
             return [304, "Fixed, mode already ".sprintf("%04o", $cur_mode)];
@@ -281,7 +288,7 @@ sub chmod {
         if (CORE::chmod($want_mode, $path)) {
             return [200, "Fixed"];
         } else {
-            return [500, "Can't chmod: $!"];
+            return [500, "Can't chmod $path, $want_mode: $!"];
         }
     }
     [400, "Invalid -tx_action"];
@@ -427,7 +434,7 @@ sub chown {
     #$log->tracef("path=%s, cur_uid=%s, cur_gid=%s, want_uid=%s, want_uname=%s, want_gid=%s, want_gname=%s", $cur_uid, $cur_gid, $want_uid, $want_uname, $want_gid, $want_gname);
     if ($tx_action eq 'check_state') {
         my @undo;
-        return [412, "Doesn't exist"] if !$exists;
+        return [412, "$path doesn't exist"] if !$exists;
         if (defined($want_uid) && $cur_uid != $want_uid ||
                 defined($want_gid) && $cur_gid != $want_gid) {
             $log->infof("(DRY) Chown %s to (%s, %s)",
@@ -461,7 +468,8 @@ sub chown {
         if ($res) {
             return [200, "Fixed"];
         } else {
-            return [500, "Can't chown: $!"];
+            return [500, "Can't chown $path, ".($want_uid // -1).", ".
+                        ($want_gid // -1).": $!"];
         }
     }
     [400, "Invalid -tx_action"];
@@ -774,7 +782,7 @@ sub mkfile {
                 CORE::chmod(0644, $path);
                 return [200, "OK"];
             } else {
-                return [500, "Can't write_file(): $!"];
+                return [500, "Can't write_file($path): $!"];
             }
         } else {
             # shouldn't reach here
@@ -867,7 +875,8 @@ sub _setup_file_or_dir {
 
         if (!$allow_sym && $is_sym) {
             if (!$replace_sym) {
-                return [412, "must replace symlink but instructed not to"];
+                return [412,
+                        "must replace symlink $path but instructed not to"];
             }
             $log->info("(DRY) Replacing symlink $path with $which ...")
                 if $dry_run;
@@ -875,7 +884,7 @@ sub _setup_file_or_dir {
             unshift @undo, $act_untrash;
         } elsif ($is_dir && $which eq 'file') {
             if (!$replace_dir) {
-                return [412, "must replace dir but instructed not to"];
+                return [412, "must replace dir $path but instructed not to"];
             }
             $log->info("(DRY) Replacing file $path with $which ...")
                 if $dry_run;
@@ -883,7 +892,7 @@ sub _setup_file_or_dir {
             unshift @undo, $act_untrash;
         } elsif (!$is_dir && $which eq 'dir') {
             if (!$replace_file) {
-                return [412, "must replace file but instructed not to"];
+                return [412, "must replace file $path but instructed not to"];
             }
             $log->info("(DRY) Replacing dir $path with $which ...")
                 if $dry_run;
@@ -917,11 +926,9 @@ sub _setup_file_or_dir {
         if (defined $args{mode}) {
             my $cur_mode = @st ? $st[2] & 07777 : undef;
             push @do, ["chmod" => {
-                path=>$path, allow_symlink=>$allow_sym,
-                mode=>$args{mode}}];
+                path=>$path, mode=>$args{mode}}];
             unshift @undo, ["chmod" => {
-                path=>$path, allow_symlink=>$allow_sym,
-                mode=>$cur_mode}] if defined($cur_mode);
+                path=>$path, mode=>$cur_mode}] if defined($cur_mode);
         }
 
         if (defined $args{owner}) {
@@ -1163,9 +1170,11 @@ sub setup_dir  {
 1;
 # ABSTRACT: Setup file (existence, mode, permission, content)
 
-
 __END__
+
 =pod
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -1173,32 +1182,10 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-version 0.17
-
-=head1 FAQ
-
-=head2 Why not allowing coderef in 'check_content_func' and 'gen_content_func' argument?
-
-Because transactional function needs to store its argument in database
-(currently in JSON), coderefs are not representable in JSON.
-
-=head1 SEE ALSO
-
-L<Setup>
-
-L<Setup::File::Dir>
-
-L<Setup::File::Symlink>
-
-=head1 DESCRIPTION
-
-
-This module has L<Rinci> metadata.
+This document describes version 0.18 of Setup::File (from Perl distribution Setup-File), released on 2014-05-02.
 
 =head1 FUNCTIONS
 
-
-None are exported by default, but they are exportable.
 
 =head2 chmod(%args) -> [status, msg, result, meta]
 
@@ -1210,7 +1197,7 @@ Fixable state: C<path> exists but mode is not correct.
 
 Unfixable state: C<path> doesn't exist.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation). This function supports transactions.
 
 
 Arguments ('*' denotes required arguments):
@@ -1241,17 +1228,37 @@ Special arguments:
 
 =item * B<-tx_action> => I<str>
 
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
 
-=item * B<-tx_manager> => I<obj>
+=item * B<-tx_action_id> => I<str>
 
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_recovery> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_rollback> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_v> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
 
 =back
 
 Return value:
 
-Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
+Returns an enveloped result (an array).
+
+First element (status) is an integer containing HTTP status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+(msg) is a string containing error message, or 'OK' if status is
+200. Third element (result) is optional, the actual result. Fourth
+element (meta) is called result metadata and is optional, a hash
+that contains extra information.
+
 
 =head2 chown(%args) -> [status, msg, result, meta]
 
@@ -1263,7 +1270,7 @@ Fixable state: C<path> exists but ownership is not correct.
 
 Unfixable state: C<path> doesn't exist.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation). This function supports transactions.
 
 
 Arguments ('*' denotes required arguments):
@@ -1302,17 +1309,37 @@ Special arguments:
 
 =item * B<-tx_action> => I<str>
 
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
 
-=item * B<-tx_manager> => I<obj>
+=item * B<-tx_action_id> => I<str>
 
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_recovery> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_rollback> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_v> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
 
 =back
 
 Return value:
 
-Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
+Returns an enveloped result (an array).
+
+First element (status) is an integer containing HTTP status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+(msg) is a string containing error message, or 'OK' if status is
+200. Third element (result) is optional, the actual result. Fourth
+element (meta) is called result metadata and is optional, a hash
+that contains extra information.
+
 
 =head2 mkdir(%args) -> [status, msg, result, meta]
 
@@ -1324,7 +1351,7 @@ Fixable state: C<path> doesn't exist.
 
 Unfixable state: C<path> exists and is not a directory.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation). This function supports transactions.
 
 
 Arguments ('*' denotes required arguments):
@@ -1334,6 +1361,10 @@ Arguments ('*' denotes required arguments):
 =item * B<allow_symlink> => I<str>
 
 Whether to regard symlink to a directory as directory.
+
+=item * B<mode> => I<str>
+
+Set mode for the newly created directory.
 
 =item * B<path>* => I<str>
 
@@ -1347,17 +1378,37 @@ Special arguments:
 
 =item * B<-tx_action> => I<str>
 
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
 
-=item * B<-tx_manager> => I<obj>
+=item * B<-tx_action_id> => I<str>
 
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_recovery> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_rollback> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_v> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
 
 =back
 
 Return value:
 
-Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
+Returns an enveloped result (an array).
+
+First element (status) is an integer containing HTTP status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+(msg) is a string containing error message, or 'OK' if status is
+200. Third element (result) is optional, the actual result. Fourth
+element (meta) is called result metadata and is optional, a hash
+that contains extra information.
+
 
 =head2 mkfile(%args) -> [status, msg, result, meta]
 
@@ -1370,7 +1421,7 @@ incorrect. Or C<orig_path> specified and exists.
 
 Unfixable state: C<path> exists and is not a file.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation). This function supports transactions.
 
 
 Arguments ('*' denotes required arguments):
@@ -1437,17 +1488,37 @@ Special arguments:
 
 =item * B<-tx_action> => I<str>
 
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
 
-=item * B<-tx_manager> => I<obj>
+=item * B<-tx_action_id> => I<str>
 
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_recovery> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_rollback> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_v> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
 
 =back
 
 Return value:
 
-Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
+Returns an enveloped result (an array).
+
+First element (status) is an integer containing HTTP status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+(msg) is a string containing error message, or 'OK' if status is
+200. Third element (result) is optional, the actual result. Fourth
+element (meta) is called result metadata and is optional, a hash
+that contains extra information.
+
 
 =head2 rmdir(%args) -> [status, msg, result, meta]
 
@@ -1460,7 +1531,7 @@ if C<allow_symlink> option is enabled).
 
 Unfixable state: C<path> exists but is not a directory.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation). This function supports transactions.
 
 
 Arguments ('*' denotes required arguments):
@@ -1492,17 +1563,37 @@ Special arguments:
 
 =item * B<-tx_action> => I<str>
 
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
 
-=item * B<-tx_manager> => I<obj>
+=item * B<-tx_action_id> => I<str>
 
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_recovery> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_rollback> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_v> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
 
 =back
 
 Return value:
 
-Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
+Returns an enveloped result (an array).
+
+First element (status) is an integer containing HTTP status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+(msg) is a string containing error message, or 'OK' if status is
+200. Third element (result) is optional, the actual result. Fourth
+element (meta) is called result metadata and is optional, a hash
+that contains extra information.
+
 
 =head2 rmfile(%args) -> [status, msg, result, meta]
 
@@ -1515,7 +1606,7 @@ C<allow_symlink> option is enabled).
 
 Unfixable state: C<path> exists but is not a file.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation). This function supports transactions.
 
 
 Arguments ('*' denotes required arguments):
@@ -1554,17 +1645,37 @@ Special arguments:
 
 =item * B<-tx_action> => I<str>
 
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
 
-=item * B<-tx_manager> => I<obj>
+=item * B<-tx_action_id> => I<str>
 
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_recovery> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_rollback> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_v> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
 
 =back
 
 Return value:
 
-Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
+Returns an enveloped result (an array).
+
+First element (status) is an integer containing HTTP status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+(msg) is a string containing error message, or 'OK' if status is
+200. Third element (result) is optional, the actual result. Fourth
+element (meta) is called result metadata and is optional, a hash
+that contains extra information.
+
 
 =head2 setup_dir(%args) -> [status, msg, result, meta]
 
@@ -1581,7 +1692,7 @@ confirmation is set to true, will delete non-empty directory.
 Will I<not> create intermediate directories like "mkdir -p". Create intermediate
 directories using several setup_dir() invocation.
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation). This function supports transactions.
 
 
 Arguments ('*' denotes required arguments):
@@ -1642,17 +1753,37 @@ Special arguments:
 
 =item * B<-tx_action> => I<str>
 
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
 
-=item * B<-tx_manager> => I<obj>
+=item * B<-tx_action_id> => I<str>
 
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_recovery> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_rollback> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_v> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
 
 =back
 
 Return value:
 
-Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
+Returns an enveloped result (an array).
+
+First element (status) is an integer containing HTTP status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+(msg) is a string containing error message, or 'OK' if status is
+200. Third element (result) is optional, the actual result. Fourth
+element (meta) is called result metadata and is optional, a hash
+that contains extra information.
+
 
 =head2 setup_file(%args) -> [status, msg, result, meta]
 
@@ -1665,7 +1796,7 @@ On undo, will restore old mode/permission/content, or delete the file again if
 it was created by this function I<and> its content hasn't changed since (if
 content/ownership/mode has changed, function will request confirmation).
 
-This function is idempotent (repeated invocations with same arguments has the same effect as single invocation).
+This function is idempotent (repeated invocations with same arguments has the same effect as single invocation). This function supports transactions.
 
 
 Arguments ('*' denotes required arguments):
@@ -1761,17 +1892,67 @@ Special arguments:
 
 =item * B<-tx_action> => I<str>
 
-You currently can set this to 'rollback'. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
 
-=item * B<-tx_manager> => I<obj>
+=item * B<-tx_action_id> => I<str>
 
-Instance of transaction manager object, usually L<Perinci::Tx::Manager>. Usually you do not have to pass this yourself, L<Perinci::Access::InProcess> will do it for you. For more details on transactions, see L<Rinci::function::Transaction>.
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_recovery> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_rollback> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
+
+=item * B<-tx_v> => I<str>
+
+For more information on transaction, see L<Rinci::Transaction>.
 
 =back
 
 Return value:
 
-Returns an enveloped result (an array). First element (status) is an integer containing HTTP status code (200 means OK, 4xx caller error, 5xx function error). Second element (msg) is a string containing error message, or 'OK' if status is 200. Third element (result) is optional, the actual result. Fourth element (meta) is called result metadata and is optional, a hash that contains extra information.
+Returns an enveloped result (an array).
+
+First element (status) is an integer containing HTTP status code
+(200 means OK, 4xx caller error, 5xx function error). Second element
+(msg) is a string containing error message, or 'OK' if status is
+200. Third element (result) is optional, the actual result. Fourth
+element (meta) is called result metadata and is optional, a hash
+that contains extra information.
+
+=head1 FAQ
+
+=head2 Why not allowing coderef in 'check_content_func' and 'gen_content_func' argument?
+
+Because transactional function needs to store its argument in database
+(currently in JSON), coderefs are not representable in JSON.
+
+=head1 SEE ALSO
+
+L<Setup>
+
+L<Setup::File::Dir>
+
+L<Setup::File::Symlink>
+
+=head1 HOMEPAGE
+
+Please visit the project's homepage at L<https://metacpan.org/release/Setup-File>.
+
+=head1 SOURCE
+
+Source repository is at L<https://github.com/sharyanto/perl-Setup-File>.
+
+=head1 BUGS
+
+Please report any bugs or feature requests on the bugtracker website L<https://rt.cpan.org/Public/Dist/Display.html?Name=Setup-File>
+
+When submitting a bug or request, please include a test-file or a
+patch to an existing test-file that illustrates the bug or desired
+feature.
 
 =head1 AUTHOR
 
@@ -1779,10 +1960,9 @@ Steven Haryanto <stevenharyanto@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2012 by Steven Haryanto.
+This software is copyright (c) 2014 by Steven Haryanto.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
-

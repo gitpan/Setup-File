@@ -2,26 +2,10 @@ NAME
     Setup::File - Setup file (existence, mode, permission, content)
 
 VERSION
-    version 0.17
-
-FAQ
-  Why not allowing coderef in 'check_content_func' and 'gen_content_func' argument?
-    Because transactional function needs to store its argument in database
-    (currently in JSON), coderefs are not representable in JSON.
-
-SEE ALSO
-    Setup
-
-    Setup::File::Dir
-
-    Setup::File::Symlink
-
-DESCRIPTION
-    This module has Rinci metadata.
+    This document describes version 0.18 of Setup::File (from Perl
+    distribution Setup-File), released on 2014-05-02.
 
 FUNCTIONS
-    None are exported by default, but they are exportable.
-
   chmod(%args) -> [status, msg, result, meta]
     Set file's permission mode.
 
@@ -32,7 +16,8 @@ FUNCTIONS
     Unfixable state: "path" doesn't exist.
 
     This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    has the same effect as single invocation). This function supports
+    transactions.
 
     Arguments ('*' denotes required arguments):
 
@@ -56,25 +41,34 @@ FUNCTIONS
 
     *   -tx_action => *str*
 
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
 
-    *   -tx_manager => *obj*
+    *   -tx_action_id => *str*
 
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_recovery => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_rollback => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_v => *str*
+
+        For more information on transaction, see Rinci::Transaction.
 
     Return value:
 
-    Returns an enveloped result (an array). First element (status) is an
-    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
-    function error). Second element (msg) is a string containing error
-    message, or 'OK' if status is 200. Third element (result) is optional,
-    the actual result. Fourth element (meta) is called result metadata and
-    is optional, a hash that contains extra information.
+    Returns an enveloped result (an array).
+
+    First element (status) is an integer containing HTTP status code (200
+    means OK, 4xx caller error, 5xx function error). Second element (msg) is
+    a string containing error message, or 'OK' if status is 200. Third
+    element (result) is optional, the actual result. Fourth element (meta)
+    is called result metadata and is optional, a hash that contains extra
+    information.
 
   chown(%args) -> [status, msg, result, meta]
     Set file's ownership.
@@ -86,7 +80,8 @@ FUNCTIONS
     Unfixable state: "path" doesn't exist.
 
     This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    has the same effect as single invocation). This function supports
+    transactions.
 
     Arguments ('*' denotes required arguments):
 
@@ -118,25 +113,34 @@ FUNCTIONS
 
     *   -tx_action => *str*
 
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
 
-    *   -tx_manager => *obj*
+    *   -tx_action_id => *str*
 
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_recovery => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_rollback => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_v => *str*
+
+        For more information on transaction, see Rinci::Transaction.
 
     Return value:
 
-    Returns an enveloped result (an array). First element (status) is an
-    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
-    function error). Second element (msg) is a string containing error
-    message, or 'OK' if status is 200. Third element (result) is optional,
-    the actual result. Fourth element (meta) is called result metadata and
-    is optional, a hash that contains extra information.
+    Returns an enveloped result (an array).
+
+    First element (status) is an integer containing HTTP status code (200
+    means OK, 4xx caller error, 5xx function error). Second element (msg) is
+    a string containing error message, or 'OK' if status is 200. Third
+    element (result) is optional, the actual result. Fourth element (meta)
+    is called result metadata and is optional, a hash that contains extra
+    information.
 
   mkdir(%args) -> [status, msg, result, meta]
     Create directory.
@@ -148,13 +152,18 @@ FUNCTIONS
     Unfixable state: "path" exists and is not a directory.
 
     This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    has the same effect as single invocation). This function supports
+    transactions.
 
     Arguments ('*' denotes required arguments):
 
     *   allow_symlink => *str*
 
         Whether to regard symlink to a directory as directory.
+
+    *   mode => *str*
+
+        Set mode for the newly created directory.
 
     *   path* => *str*
 
@@ -164,25 +173,34 @@ FUNCTIONS
 
     *   -tx_action => *str*
 
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
 
-    *   -tx_manager => *obj*
+    *   -tx_action_id => *str*
 
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_recovery => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_rollback => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_v => *str*
+
+        For more information on transaction, see Rinci::Transaction.
 
     Return value:
 
-    Returns an enveloped result (an array). First element (status) is an
-    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
-    function error). Second element (msg) is a string containing error
-    message, or 'OK' if status is 200. Third element (result) is optional,
-    the actual result. Fourth element (meta) is called result metadata and
-    is optional, a hash that contains extra information.
+    Returns an enveloped result (an array).
+
+    First element (status) is an integer containing HTTP status code (200
+    means OK, 4xx caller error, 5xx function error). Second element (msg) is
+    a string containing error message, or 'OK' if status is 200. Third
+    element (result) is optional, the actual result. Fourth element (meta)
+    is called result metadata and is optional, a hash that contains extra
+    information.
 
   mkfile(%args) -> [status, msg, result, meta]
     Create file (and/or set content).
@@ -195,7 +213,8 @@ FUNCTIONS
     Unfixable state: "path" exists and is not a file.
 
     This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    has the same effect as single invocation). This function supports
+    transactions.
 
     Arguments ('*' denotes required arguments):
 
@@ -258,25 +277,34 @@ FUNCTIONS
 
     *   -tx_action => *str*
 
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
 
-    *   -tx_manager => *obj*
+    *   -tx_action_id => *str*
 
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_recovery => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_rollback => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_v => *str*
+
+        For more information on transaction, see Rinci::Transaction.
 
     Return value:
 
-    Returns an enveloped result (an array). First element (status) is an
-    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
-    function error). Second element (msg) is a string containing error
-    message, or 'OK' if status is 200. Third element (result) is optional,
-    the actual result. Fourth element (meta) is called result metadata and
-    is optional, a hash that contains extra information.
+    Returns an enveloped result (an array).
+
+    First element (status) is an integer containing HTTP status code (200
+    means OK, 4xx caller error, 5xx function error). Second element (msg) is
+    a string containing error message, or 'OK' if status is 200. Third
+    element (result) is optional, the actual result. Fourth element (meta)
+    is called result metadata and is optional, a hash that contains extra
+    information.
 
   rmdir(%args) -> [status, msg, result, meta]
     Delete directory.
@@ -289,7 +317,8 @@ FUNCTIONS
     Unfixable state: "path" exists but is not a directory.
 
     This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    has the same effect as single invocation). This function supports
+    transactions.
 
     Arguments ('*' denotes required arguments):
 
@@ -315,25 +344,34 @@ FUNCTIONS
 
     *   -tx_action => *str*
 
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
 
-    *   -tx_manager => *obj*
+    *   -tx_action_id => *str*
 
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_recovery => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_rollback => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_v => *str*
+
+        For more information on transaction, see Rinci::Transaction.
 
     Return value:
 
-    Returns an enveloped result (an array). First element (status) is an
-    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
-    function error). Second element (msg) is a string containing error
-    message, or 'OK' if status is 200. Third element (result) is optional,
-    the actual result. Fourth element (meta) is called result metadata and
-    is optional, a hash that contains extra information.
+    Returns an enveloped result (an array).
+
+    First element (status) is an integer containing HTTP status code (200
+    means OK, 4xx caller error, 5xx function error). Second element (msg) is
+    a string containing error message, or 'OK' if status is 200. Third
+    element (result) is optional, the actual result. Fourth element (meta)
+    is called result metadata and is optional, a hash that contains extra
+    information.
 
   rmfile(%args) -> [status, msg, result, meta]
     Delete file.
@@ -346,7 +384,8 @@ FUNCTIONS
     Unfixable state: "path" exists but is not a file.
 
     This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    has the same effect as single invocation). This function supports
+    transactions.
 
     Arguments ('*' denotes required arguments):
 
@@ -379,25 +418,34 @@ FUNCTIONS
 
     *   -tx_action => *str*
 
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
 
-    *   -tx_manager => *obj*
+    *   -tx_action_id => *str*
 
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_recovery => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_rollback => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_v => *str*
+
+        For more information on transaction, see Rinci::Transaction.
 
     Return value:
 
-    Returns an enveloped result (an array). First element (status) is an
-    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
-    function error). Second element (msg) is a string containing error
-    message, or 'OK' if status is 200. Third element (result) is optional,
-    the actual result. Fourth element (meta) is called result metadata and
-    is optional, a hash that contains extra information.
+    Returns an enveloped result (an array).
+
+    First element (status) is an integer containing HTTP status code (200
+    means OK, 4xx caller error, 5xx function error). Second element (msg) is
+    a string containing error message, or 'OK' if status is 200. Third
+    element (result) is optional, the actual result. Fourth element (meta)
+    is called result metadata and is optional, a hash that contains extra
+    information.
 
   setup_dir(%args) -> [status, msg, result, meta]
     Setup directory (existence, mode, permission).
@@ -415,7 +463,8 @@ FUNCTIONS
     intermediate directories using several setup_dir() invocation.
 
     This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    has the same effect as single invocation). This function supports
+    transactions.
 
     Arguments ('*' denotes required arguments):
 
@@ -469,25 +518,34 @@ FUNCTIONS
 
     *   -tx_action => *str*
 
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
 
-    *   -tx_manager => *obj*
+    *   -tx_action_id => *str*
 
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_recovery => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_rollback => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_v => *str*
+
+        For more information on transaction, see Rinci::Transaction.
 
     Return value:
 
-    Returns an enveloped result (an array). First element (status) is an
-    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
-    function error). Second element (msg) is a string containing error
-    message, or 'OK' if status is 200. Third element (result) is optional,
-    the actual result. Fourth element (meta) is called result metadata and
-    is optional, a hash that contains extra information.
+    Returns an enveloped result (an array).
+
+    First element (status) is an integer containing HTTP status code (200
+    means OK, 4xx caller error, 5xx function error). Second element (msg) is
+    a string containing error message, or 'OK' if status is 200. Third
+    element (result) is optional, the actual result. Fourth element (meta)
+    is called result metadata and is optional, a hash that contains extra
+    information.
 
   setup_file(%args) -> [status, msg, result, meta]
     Setup file (existence, mode, permission, content).
@@ -501,7 +559,8 @@ FUNCTIONS
     request confirmation).
 
     This function is idempotent (repeated invocations with same arguments
-    has the same effect as single invocation).
+    has the same effect as single invocation). This function supports
+    transactions.
 
     Arguments ('*' denotes required arguments):
 
@@ -591,31 +650,66 @@ FUNCTIONS
 
     *   -tx_action => *str*
 
-        You currently can set this to 'rollback'. Usually you do not have to
-        pass this yourself, Perinci::Access::InProcess will do it for you.
-        For more details on transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
 
-    *   -tx_manager => *obj*
+    *   -tx_action_id => *str*
 
-        Instance of transaction manager object, usually
-        Perinci::Tx::Manager. Usually you do not have to pass this yourself,
-        Perinci::Access::InProcess will do it for you. For more details on
-        transactions, see Rinci::function::Transaction.
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_recovery => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_rollback => *str*
+
+        For more information on transaction, see Rinci::Transaction.
+
+    *   -tx_v => *str*
+
+        For more information on transaction, see Rinci::Transaction.
 
     Return value:
 
-    Returns an enveloped result (an array). First element (status) is an
-    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
-    function error). Second element (msg) is a string containing error
-    message, or 'OK' if status is 200. Third element (result) is optional,
-    the actual result. Fourth element (meta) is called result metadata and
-    is optional, a hash that contains extra information.
+    Returns an enveloped result (an array).
+
+    First element (status) is an integer containing HTTP status code (200
+    means OK, 4xx caller error, 5xx function error). Second element (msg) is
+    a string containing error message, or 'OK' if status is 200. Third
+    element (result) is optional, the actual result. Fourth element (meta)
+    is called result metadata and is optional, a hash that contains extra
+    information.
+
+FAQ
+  Why not allowing coderef in 'check_content_func' and 'gen_content_func' argument?
+    Because transactional function needs to store its argument in database
+    (currently in JSON), coderefs are not representable in JSON.
+
+SEE ALSO
+    Setup
+
+    Setup::File::Dir
+
+    Setup::File::Symlink
+
+HOMEPAGE
+    Please visit the project's homepage at
+    <https://metacpan.org/release/Setup-File>.
+
+SOURCE
+    Source repository is at <https://github.com/sharyanto/perl-Setup-File>.
+
+BUGS
+    Please report any bugs or feature requests on the bugtracker website
+    <https://rt.cpan.org/Public/Dist/Display.html?Name=Setup-File>
+
+    When submitting a bug or request, please include a test-file or a patch
+    to an existing test-file that illustrates the bug or desired feature.
 
 AUTHOR
     Steven Haryanto <stevenharyanto@gmail.com>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2012 by Steven Haryanto.
+    This software is copyright (c) 2014 by Steven Haryanto.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.
