@@ -12,7 +12,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_file);
 
-our $VERSION = '0.18'; # VERSION
+our $VERSION = '0.19'; # VERSION
 our $DATE = '2014-05-02'; # DATE
 
 our %SPEC;
@@ -1182,7 +1182,7 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-This document describes version 0.18 of Setup::File (from Perl distribution Setup-File), released on 2014-05-02.
+This document describes version 0.19 of Setup::File (from Perl distribution Setup-File), released on 2014-05-02.
 
 =head1 FUNCTIONS
 

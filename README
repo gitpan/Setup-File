@@ -2,7 +2,7 @@ NAME
     Setup::File - Setup file (existence, mode, permission, content)
 
 VERSION
-    This document describes version 0.18 of Setup::File (from Perl
+    This document describes version 0.19 of Setup::File (from Perl
     distribution Setup-File), released on 2014-05-02.
 
 FUNCTIONS

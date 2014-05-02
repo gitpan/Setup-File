@@ -6,7 +6,7 @@ require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_dir);
 
-our $VERSION = '0.18'; # VERSION
+our $VERSION = '0.19'; # VERSION
 
 # now moved to Setup::File
 
@@ -29,7 +29,7 @@ Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-This document describes version 0.18 of Setup::File::Dir (from Perl distribution Setup-File), released on 2014-05-02.
+This document describes version 0.19 of Setup::File::Dir (from Perl distribution Setup-File), released on 2014-05-02.
 
 =for Pod::Coverage ^(setup_dir)$
 
