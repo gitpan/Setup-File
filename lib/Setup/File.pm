@@ -1,19 +1,19 @@
 package Setup::File;
 
+our $DATE = '2014-12-05'; # DATE
+our $VERSION = '0.20'; # VERSION
+
 use 5.010001;
 use strict;
 use warnings;
 use Log::Any '$log';
 
 use File::Trash::Undoable;
-use SHARYANTO::File::Util qw(dir_empty);
+use File::MoreUtil qw(dir_empty);
 
 require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_file);
-
-our $VERSION = '0.19'; # VERSION
-our $DATE = '2014-05-02'; # DATE
 
 our %SPEC;
 
@@ -559,8 +559,8 @@ sub rmfile {
             if (!$args{-confirm} && (defined($args{orig_content}) ||
                                          defined($args{orig_content_md5}))) {
                 if (defined $args{orig_content}) {
-                    require File::Slurp;
-                    my $ct = File::Slurp::read_file($path, err_mode=>'quiet');
+                    require File::Slurp::Tiny;
+                    my $ct = eval { File::Slurp::Tiny::read_file($path) };
                     return [500, "Can't read file $path: $!"]
                         unless defined($ct);
                     return [331, "File $path has changed content, confirm ".
@@ -685,7 +685,7 @@ _
 };
 sub mkfile {
     require Digest::MD5;
-    require File::Slurp;
+    require File::Slurp::Tiny;
 
     my %args = @_;
 
@@ -710,7 +710,7 @@ sub mkfile {
 
     my $fix_content;
     if ($exists) {
-        my $ct = File::Slurp::read_file($path, err_mode=>'quiet');
+        my $ct = eval { File::Slurp::Tiny::read_file($path) };
         return [500, "Can't read content of file $path: $!"]
             unless defined($ct);
         my $res;
@@ -778,7 +778,7 @@ sub mkfile {
                 $ct = $args{content};
             }
             $log->info("Creating file $path ...");
-            if (File::Slurp::write_file($path, {errmode=>'quiet'}, $ct)) {
+            if (eval { File::Slurp::Tiny::write_file($path, $ct); 1 }) {
                 CORE::chmod(0644, $path);
                 return [200, "OK"];
             } else {
@@ -1182,7 +1182,7 @@ Setup::File - Setup file (existence, mode, permission, content)
 
 =head1 VERSION
 
-This document describes version 0.19 of Setup::File (from Perl distribution Setup-File), released on 2014-05-02.
+This document describes version 0.20 of Setup::File (from Perl distribution Setup-File), released on 2014-12-05.
 
 =head1 FUNCTIONS
 
@@ -1258,6 +1258,8 @@ First element (status) is an integer containing HTTP status code
 200. Third element (result) is optional, the actual result. Fourth
 element (meta) is called result metadata and is optional, a hash
 that contains extra information.
+
+ (any)
 
 
 =head2 chown(%args) -> [status, msg, result, meta]
@@ -1340,6 +1342,8 @@ First element (status) is an integer containing HTTP status code
 element (meta) is called result metadata and is optional, a hash
 that contains extra information.
 
+ (any)
+
 
 =head2 mkdir(%args) -> [status, msg, result, meta]
 
@@ -1408,6 +1412,8 @@ First element (status) is an integer containing HTTP status code
 200. Third element (result) is optional, the actual result. Fourth
 element (meta) is called result metadata and is optional, a hash
 that contains extra information.
+
+ (any)
 
 
 =head2 mkfile(%args) -> [status, msg, result, meta]
@@ -1519,6 +1525,8 @@ First element (status) is an integer containing HTTP status code
 element (meta) is called result metadata and is optional, a hash
 that contains extra information.
 
+ (any)
+
 
 =head2 rmdir(%args) -> [status, msg, result, meta]
 
@@ -1593,6 +1601,8 @@ First element (status) is an integer containing HTTP status code
 200. Third element (result) is optional, the actual result. Fourth
 element (meta) is called result metadata and is optional, a hash
 that contains extra information.
+
+ (any)
 
 
 =head2 rmfile(%args) -> [status, msg, result, meta]
@@ -1676,6 +1686,8 @@ First element (status) is an integer containing HTTP status code
 element (meta) is called result metadata and is optional, a hash
 that contains extra information.
 
+ (any)
+
 
 =head2 setup_dir(%args) -> [status, msg, result, meta]
 
@@ -1703,8 +1715,8 @@ Arguments ('*' denotes required arguments):
 
 Whether symlink is allowed.
 
-If existing dir is a symlink then if allowI<symlink is false then it is an
-unacceptable condition (the symlink will be replaced if replace>symlink is
+If existing dir is a symlink then if allow_symlink is false then it is an
+unacceptable condition (the symlink will be replaced if replace_symlink is
 true).
 
 Note: if you want to setup symlink instead, use Setup::Symlink.
@@ -1784,6 +1796,8 @@ First element (status) is an integer containing HTTP status code
 element (meta) is called result metadata and is optional, a hash
 that contains extra information.
 
+ (any)
+
 
 =head2 setup_file(%args) -> [status, msg, result, meta]
 
@@ -1807,8 +1821,8 @@ Arguments ('*' denotes required arguments):
 
 Whether symlink is allowed.
 
-If existing file is a symlink to a file then if allowI<symlink is false then it
-is an unacceptable condition (the symlink will be replaced if replace>symlink is
+If existing file is a symlink to a file then if allow_symlink is false then it
+is an unacceptable condition (the symlink will be replaced if replace_symlink is
 true).
 
 Note: if you want to setup symlink instead, use Setup::Symlink.
@@ -1923,6 +1937,8 @@ First element (status) is an integer containing HTTP status code
 element (meta) is called result metadata and is optional, a hash
 that contains extra information.
 
+ (any)
+
 =head1 FAQ
 
 =head2 Why not allowing coderef in 'check_content_func' and 'gen_content_func' argument?
@@ -1944,7 +1960,7 @@ Please visit the project's homepage at L<https://metacpan.org/release/Setup-File
 
 =head1 SOURCE
 
-Source repository is at L<https://github.com/sharyanto/perl-Setup-File>.
+Source repository is at L<https://github.com/perlancar/perl-Setup-File>.
 
 =head1 BUGS
 
@@ -1956,11 +1972,11 @@ feature.
 
 =head1 AUTHOR
 
-Steven Haryanto <stevenharyanto@gmail.com>
+perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2014 by Steven Haryanto.
+This software is copyright (c) 2014 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

@@ -1,12 +1,13 @@
 package Setup::File::Dir;
 
+our $DATE = '2014-12-05'; # DATE
+our $VERSION = '0.20'; # VERSION
+
 use Setup::File;
 
 require Exporter;
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(setup_dir);
-
-our $VERSION = '0.19'; # VERSION
 
 # now moved to Setup::File
 
@@ -29,7 +30,7 @@ Setup::File::Dir - Setup directory (existence, mode, permission)
 
 =head1 VERSION
 
-This document describes version 0.19 of Setup::File::Dir (from Perl distribution Setup-File), released on 2014-05-02.
+This document describes version 0.20 of Setup::File::Dir (from Perl distribution Setup-File), released on 2014-12-05.
 
 =for Pod::Coverage ^(setup_dir)$
 
@@ -49,7 +50,7 @@ Please visit the project's homepage at L<https://metacpan.org/release/Setup-File
 
 =head1 SOURCE
 
-Source repository is at L<https://github.com/sharyanto/perl-Setup-File>.
+Source repository is at L<https://github.com/perlancar/perl-Setup-File>.
 
 =head1 BUGS
 
@@ -61,11 +62,11 @@ feature.
 
 =head1 AUTHOR
 
-Steven Haryanto <stevenharyanto@gmail.com>
+perlancar <perlancar@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2014 by Steven Haryanto.
+This software is copyright (c) 2014 by perlancar@cpan.org.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

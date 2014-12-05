@@ -2,8 +2,8 @@ NAME
     Setup::File - Setup file (existence, mode, permission, content)
 
 VERSION
-    This document describes version 0.19 of Setup::File (from Perl
-    distribution Setup-File), released on 2014-05-02.
+    This document describes version 0.20 of Setup::File (from Perl
+    distribution Setup-File), released on 2014-12-05.
 
 FUNCTIONS
   chmod(%args) -> [status, msg, result, meta]
@@ -69,6 +69,8 @@ FUNCTIONS
     element (result) is optional, the actual result. Fourth element (meta)
     is called result metadata and is optional, a hash that contains extra
     information.
+
+     (any)
 
   chown(%args) -> [status, msg, result, meta]
     Set file's ownership.
@@ -142,6 +144,8 @@ FUNCTIONS
     is called result metadata and is optional, a hash that contains extra
     information.
 
+     (any)
+
   mkdir(%args) -> [status, msg, result, meta]
     Create directory.
 
@@ -201,6 +205,8 @@ FUNCTIONS
     element (result) is optional, the actual result. Fourth element (meta)
     is called result metadata and is optional, a hash that contains extra
     information.
+
+     (any)
 
   mkfile(%args) -> [status, msg, result, meta]
     Create file (and/or set content).
@@ -306,6 +312,8 @@ FUNCTIONS
     is called result metadata and is optional, a hash that contains extra
     information.
 
+     (any)
+
   rmdir(%args) -> [status, msg, result, meta]
     Delete directory.
 
@@ -372,6 +380,8 @@ FUNCTIONS
     element (result) is optional, the actual result. Fourth element (meta)
     is called result metadata and is optional, a hash that contains extra
     information.
+
+     (any)
 
   rmfile(%args) -> [status, msg, result, meta]
     Delete file.
@@ -447,6 +457,8 @@ FUNCTIONS
     is called result metadata and is optional, a hash that contains extra
     information.
 
+     (any)
+
   setup_dir(%args) -> [status, msg, result, meta]
     Setup directory (existence, mode, permission).
 
@@ -472,9 +484,9 @@ FUNCTIONS
 
         Whether symlink is allowed.
 
-        If existing dir is a symlink then if allow*symlink is false then it
+        If existing dir is a symlink then if allow_symlink is false then it
         is an unacceptable condition (the symlink will be replaced if
-        replace*symlink is true).
+        replace_symlink is true).
 
         Note: if you want to setup symlink instead, use Setup::Symlink.
 
@@ -547,6 +559,8 @@ FUNCTIONS
     is called result metadata and is optional, a hash that contains extra
     information.
 
+     (any)
+
   setup_file(%args) -> [status, msg, result, meta]
     Setup file (existence, mode, permission, content).
 
@@ -568,9 +582,9 @@ FUNCTIONS
 
         Whether symlink is allowed.
 
-        If existing file is a symlink to a file then if allow*symlink is
+        If existing file is a symlink to a file then if allow_symlink is
         false then it is an unacceptable condition (the symlink will be
-        replaced if replace*symlink is true).
+        replaced if replace_symlink is true).
 
         Note: if you want to setup symlink instead, use Setup::Symlink.
 
@@ -679,6 +693,8 @@ FUNCTIONS
     is called result metadata and is optional, a hash that contains extra
     information.
 
+     (any)
+
 FAQ
   Why not allowing coderef in 'check_content_func' and 'gen_content_func' argument?
     Because transactional function needs to store its argument in database
@@ -696,7 +712,7 @@ HOMEPAGE
     <https://metacpan.org/release/Setup-File>.
 
 SOURCE
-    Source repository is at <https://github.com/sharyanto/perl-Setup-File>.
+    Source repository is at <https://github.com/perlancar/perl-Setup-File>.
 
 BUGS
     Please report any bugs or feature requests on the bugtracker website
@@ -706,10 +722,10 @@ BUGS
     to an existing test-file that illustrates the bug or desired feature.
 
 AUTHOR
-    Steven Haryanto <stevenharyanto@gmail.com>
+    perlancar <perlancar@cpan.org>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2014 by Steven Haryanto.
+    This software is copyright (c) 2014 by perlancar@cpan.org.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.
